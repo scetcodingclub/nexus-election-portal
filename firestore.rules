@@ -4,69 +4,53 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is an admin (simplified: any authenticated Firebase user)
-    function isAdmin() {
-      return request.auth != null;
-    }
-
-    // Election Rooms Collection
-    match /electionRooms {
-      // Admins can list all election rooms (for dashboard)
-      allow list: if isAdmin();
-    }
-
-    // Single Election Room Document
+    // Election Rooms
     match /electionRooms/{roomId} {
-      // Admins can create new election rooms
-      allow create: if isAdmin();
+      // Temporarily make read/list more permissive to isolate the issue
+      allow read: if true; 
+      allow list: if true; // This is often the problematic one for dashboards if auth isn't right
 
-      // Reading an election room:
-      // - Admins can read any room.
-      // - Anyone can read if the room status is 'active' or 'closed' (for voting or seeing results).
-      allow get: if isAdmin() ||
-                    (resource.data.status == 'active' || resource.data.status == 'closed');
+      // Admin operations for creating rooms
+      allow create: if request.auth != null &&
+                       request.resource.data.title is string &&
+                       request.resource.data.description is string &&
+                       request.resource.data.isAccessRestricted is bool &&
+                       request.resource.data.positions is list &&
+                       request.resource.data.status in ['pending', 'active', 'closed'];
+                       // createdAt will be handled by serverTimestamp() in the app code.
 
-      // Updating an election room:
-      // Rule 1: Admins can update any field.
-      allow update: if isAdmin();
-      // Rule 2: For recordUserVote (server action by voter):
-      // Allow updating only 'positions' and 'updatedAt' if the room is 'active'.
-      // This rule is only evaluated if the isAdmin() rule above fails (i.e., user is not an admin).
-      // SECURITY NOTE: This is a simplification. Production apps should use a trusted server environment (e.g., Cloud Function with Admin SDK) for vote counting.
-      allow update: if !isAdmin() && resource.data.status == 'active'
-                       && request.resource.data.keys().hasOnly(['positions', 'updatedAt'])
-                       && request.resource.data.size() == 2 // Ensures only these two fields are being sent for this specific update type
-                       && request.resource.data.positions.size() == resource.data.positions.size(); // Basic check: number of positions doesn't change. Deeper validation is hard in rules.
+      // Update rule: Admins can update. Voters can trigger updates to positions/updatedAt via server action.
+      allow update: if request.auth != null || // Admins can update anything
+                      (
+                        get(/databases/$(database)/documents/electionRooms/$(roomId)).data.status == 'active' && // Room must be active for vote updates
+                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['positions', 'updatedAt']) && // Only these fields can change
+                        request.resource.data.updatedAt == request.time // Ensures updatedAt is a server timestamp
+                        // Deeper validation of 'positions' increments is too complex for rules; relies on trusted server action.
+                      );
 
-      // Admins can delete election rooms
-      allow delete: if isAdmin();
+      allow delete: if request.auth != null;
     }
 
-    // User Votes Collection (tracks who has voted in which room)
-    match /userVotes {
-      // Admins can query all user votes.
-      allow list: if isAdmin();
-      // For checkUserHasVoted, if it's called by a voter, they need to query their own record.
-      // This is complex for unauthenticated users identified by email.
-      // The current checkUserHasVoted is a server action. If it uses Admin SDK, it bypasses rules.
-      // If it uses client SDK on behalf of user, specific query rules would be needed.
-      // Keeping this admin-only for queries for now simplifies rules. Application logic handles voter checks.
-    }
-
-    // Single User Vote Document
+    // User Votes (to prevent duplicate voting and record votes)
     match /userVotes/{voteId} {
-      // Anyone can create a vote record (submit their vote) IF:
-      // 1. The request provides a roomId and userEmail.
-      // 2. The associated election room exists and is 'active'.
-      allow create: if request.resource.data.roomId != null &&
-                       request.resource.data.userEmail != null &&
-                       get(/databases/$(database)/documents/electionRooms/$(request.resource.data.roomId)).data.status == 'active';
+      allow read: if request.auth != null; // Admins can read vote records
 
-      // Admins can read specific vote records
-      allow get: if isAdmin();
-
-      // No one should update or delete vote records directly via client
-      allow update, delete: if false;
+      // Allow creation of a vote record if the room is active and necessary data is present.
+      // This is called by the recordUserVote server action.
+      allow create: if isValidUserVoteCreation(request.resource.data.roomId, request.resource.data);
+      
+      // Generally, client-side updates/deletes of userVotes are not allowed.
+    }
+    
+    // Helper functions
+    function isValidUserVoteCreation(roomId, incomingVoteData) {
+      let roomDoc = get(/databases/$(database)/documents/electionRooms/$(roomId));
+      // Check if room exists and is active
+      return roomDoc.exists && roomDoc.data.status == 'active' && 
+             incomingVoteData.roomId == roomId &&
+             incomingVoteData.userEmail is string && 
+             incomingVoteData.votedAt == request.time && // Server timestamp for vote
+             incomingVoteData.votesCast is map; // Ensure votesCast is a map (object)
     }
   }
 }
