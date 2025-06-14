@@ -1,11 +1,9 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // WARNING: ALLOWS ALL READS AND WRITES TO ALL DOCUMENTS
-    // THIS IS FOR DIAGNOSTIC PURPOSES ONLY.
-    // REPLACE WITH SECURE RULES IMMEDIATELY AFTER TESTING.
+    // Allow read and write access to all documents in all collections
+    // THIS IS FOR DIAGNOSTICS ONLY AND IS NOT SECURE
     match /{document=**} {
       allow read, write: if true;
     }
