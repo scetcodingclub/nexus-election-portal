@@ -66,13 +66,15 @@ export default function LoginForm() {
         case "auth/user-disabled":
           errorMessage = "This user account has been disabled.";
           break;
-        // Handle specific error for invalid API key, though this should be fixed by user config
         case "auth/invalid-api-key":
-        case "auth/api-key-not-valid": // Common variation of the error code
-             errorMessage = "Firebase API Key is not valid. Please check your Firebase project configuration.";
+        case "auth/api-key-not-valid":
+             errorMessage = "Firebase API Key is not valid. Please check your Firebase project configuration in src/lib/firebaseClient.ts.";
+             break;
+        case "auth/configuration-not-found":
+             errorMessage = "Firebase Authentication configuration not found. Please ensure Authentication is enabled in your Firebase console (Build > Authentication > Sign-in method) and the Email/Password provider is active.";
              break;
         default:
-          errorMessage = "Login failed. Please try again.";
+          errorMessage = `Login failed: ${authError.message}. Please try again. (Code: ${authError.code})`;
           break;
       }
       toast({
