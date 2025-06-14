@@ -45,7 +45,6 @@ export default function LoginForm() {
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     try {
-      // await signInWithEmailAndPassword(auth, "Izzathalkaf@gmail.com", "Nexus@gmail786");
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful",
