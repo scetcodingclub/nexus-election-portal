@@ -17,27 +17,28 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import type { ElectionRoom } from "@/lib/types"; // Position, Candidate types might also be used if schema becomes very complex
+import type { ElectionRoom } from "@/lib/types"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon } from "lucide-react";
 import { useState, ChangeEvent } from "react";
 import Image from "next/image";
-import { storage, db } from "@/lib/firebaseClient"; // Import Firebase db
+import { storage, db } from "@/lib/firebaseClient"; 
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore"; // Firestore imports
+import { doc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore"; 
 import { cn } from "@/lib/utils";
 
 
 const candidateSchema = z.object({
-  id: z.string().optional(), // Keep internal ID for array key, not for Firestore doc ID
+  id: z.string().optional(), 
   name: z.string().min(1, "Candidate name is required."),
   imageUrl: z.string().url("Image URL must be a valid URL.").optional().or(z.literal('')),
 });
 
 const positionSchema = z.object({
-  id: z.string().optional(), // Keep internal ID for array key
+  id: z.string().optional(), 
   title: z.string().min(1, "Position title is required."),
   candidates: z.array(candidateSchema).min(1, "At least one candidate is required for a position."),
 });
@@ -48,6 +49,7 @@ const electionRoomFormSchema = z.object({
   isAccessRestricted: z.boolean().default(false),
   accessCode: z.string().optional(),
   positions: z.array(positionSchema).min(1, "At least one position is required."),
+  status: z.enum(["pending", "active", "closed"]).optional(), // Added status field
 }).refine(data => {
   if (data.isAccessRestricted && (!data.accessCode || data.accessCode.length < 4)) {
     return false;
@@ -61,7 +63,7 @@ const electionRoomFormSchema = z.object({
 type ElectionRoomFormValues = z.infer<typeof electionRoomFormSchema>;
 
 interface ElectionRoomFormProps {
-  initialData?: ElectionRoom; // For editing
+  initialData?: ElectionRoom; 
 }
 
 export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps) {
@@ -73,15 +75,13 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
     resolver: zodResolver(electionRoomFormSchema),
     defaultValues: initialData ? {
       ...initialData,
-      // Ensure positions and candidates have stable keys for useFieldArray if not already present
-      // If initialData.positions already have unique IDs, this mapping might be simplified.
-      // For candidates, their 'id' in the form is for RHF's array management, not Firestore doc ID.
+      status: initialData.status || "pending", // Initialize status for editing
       positions: initialData.positions.map(p => ({
         ...p,
-        id: p.id || `pos-${Math.random().toString(36).substr(2, 9)}`, // Ensure key for RHF
+        id: p.id || `pos-${Math.random().toString(36).substr(2, 9)}`, 
         candidates: p.candidates.map(c => ({ 
             ...c, 
-            id: c.id || `cand-${Math.random().toString(36).substr(2, 9)}`, // Ensure key for RHF
+            id: c.id || `cand-${Math.random().toString(36).substr(2, 9)}`, 
             imageUrl: c.imageUrl || '' 
         }))
       }))
@@ -90,8 +90,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       description: "",
       isAccessRestricted: false,
       accessCode: "",
-      // RHF needs unique IDs for array fields. We generate them if not present.
-      // These IDs are for form state management, not necessarily Firestore document IDs.
+      status: "pending", // Default for new forms, though overwritten on save
       positions: [{ 
           id: `pos-${Math.random().toString(36).substr(2, 9)}`, 
           title: "", 
@@ -111,46 +110,46 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
   
   const watchIsAccessRestricted = form.watch("isAccessRestricted");
 
-  // Function to generate simple unique IDs for positions/candidates within the form context
-  // These are not Firestore document IDs but keys for React Hook Form's field arrays.
   const generateClientSideId = () => Math.random().toString(36).substr(2, 9);
 
 
   async function onSubmit(values: ElectionRoomFormValues) {
     setIsLoading(true);
 
-    // Prepare data for Firestore: remove client-side IDs from positions and candidates
-    // as Firestore will handle its own document IDs if these were subcollections,
-    // or they are just part of an array in the ElectionRoom document.
     const firestoreReadyPositions = values.positions.map(p => ({
         title: p.title,
-        // For candidates within a position, we also strip the RHF id.
-        // Their 'id' for voting purposes would be generated by Firestore if they were separate docs,
-        // or be based on array index, or a newly generated UUID when saving.
-        // For simplicity here, we'll let them be part of the positions array.
-        // A more robust solution might give candidates truly unique persistent IDs.
         candidates: p.candidates.map(c => ({
             name: c.name,
             imageUrl: c.imageUrl,
-            // voteCount: 0, // Initialize voteCount if needed at creation
         })),
-        // The position 'id' from RHF is also not needed for the array in Firestore.
-        // If positions were subcollections, this would be different.
     }));
 
-    const dataToSave = {
-      ...values,
+    const dataToSave: any = { // Use 'any' temporarily or define a more specific type for Firestore data
+      title: values.title,
+      description: values.description,
+      isAccessRestricted: values.isAccessRestricted,
       positions: firestoreReadyPositions,
     };
 
+    if (values.isAccessRestricted) {
+      dataToSave.accessCode = values.accessCode;
+    } else {
+      // Explicitly ensure accessCode is not sent or is null/undefined if not restricted
+      dataToSave.accessCode = null; // Or delete dataToSave.accessCode;
+    }
+    
+    if (initialData && values.status) { // Only include status if editing and status is provided
+        dataToSave.status = values.status;
+    }
+
+
     try {
       if (initialData?.id) {
-        // Update existing room
         const roomRef = doc(db, "electionRooms", initialData.id);
         await setDoc(roomRef, {
           ...dataToSave,
           updatedAt: serverTimestamp(),
-        }, { merge: true }); // merge:true to avoid overwriting fields not in form, like status or createdAt
+        }, { merge: true }); 
         toast({
           title: "Election Room Updated",
           description: `"${values.title}" has been successfully updated.`,
@@ -160,7 +159,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
         await addDoc(collection(db, "electionRooms"), {
           ...dataToSave,
           createdAt: serverTimestamp(),
-          status: "pending", // Default status for new rooms
+          status: "pending", // New rooms always start as pending
         });
         toast({
           title: "Election Room Created",
@@ -168,7 +167,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
         });
       }
       router.push("/admin/dashboard");
-      router.refresh(); // Force refresh of dashboard to show new/updated data
+      router.refresh(); 
     } catch (error) {
       console.error("Error saving election room: ", error);
       toast({
@@ -210,6 +209,35 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             </FormItem>
           )}
         />
+
+        {initialData && ( // Only show status field when editing
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Election Status</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select election status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending (Not yet open for voting)</SelectItem>
+                    <SelectItem value="active">Active (Open for voting)</SelectItem>
+                    <SelectItem value="closed">Closed (Voting has ended)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Manage the current state of the election room.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         <FormField
           control={form.control}
           name="isAccessRestricted"
@@ -329,8 +357,8 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
 
 interface CandidateFieldsProps {
   positionIndex: number;
-  control: any; // react-hook-form control
-  form: any; // react-hook-form form object
+  control: any; 
+  form: any; 
 }
 
 function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps) {
@@ -365,7 +393,6 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
       toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload candidate image." });
     } finally {
       setUploadingStates(prev => ({ ...prev, [candidateItemFieldId]: false }));
-      // Clear file input value
       if (event.target) {
         event.target.value = "";
       }
@@ -409,7 +436,7 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
                <Controller
                 control={control}
                 name={`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`}
-                render={({ field }) => ( // field is not directly used for file input value, but Controller needs it.
+                render={({ field }) => ( 
                   <Input
                     id={`file-upload-${candidateItem.id}`}
                     type="file"
