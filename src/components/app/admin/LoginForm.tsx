@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { signInWithEmailAndPassword, AuthError } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
@@ -33,6 +33,11 @@ export default function LoginForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
@@ -47,8 +52,9 @@ export default function LoginForm() {
     setIsLoading(true);
     try {
       // Log values for debugging.
-      // console.log("Attempting login with:", { email: values.email, password: values.password }); // For local debugging only
       console.log("Attempting login with:", { email: values.email, password: "REDACTED_FOR_SECURITY_IN_FINAL_LOG" });
+      // For local debugging only to see the actual password, uncomment the line below. Be sure to remove it before committing or deploying.
+      // console.log("Attempting login with:", { email: values.email, password: values.password }); 
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful",
@@ -125,7 +131,7 @@ export default function LoginForm() {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     {...field}
-                    className="text-base md:text-sm pr-10" // Added pr-10 for icon spacing
+                    className="text-base md:text-sm pr-10"
                     aria-required="true"
                     suppressHydrationWarning={true}
                   />
@@ -135,12 +141,15 @@ export default function LoginForm() {
                     size="sm"
                     className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={mounted && showPassword ? "Hide password" : "Show password"}
+                    suppressHydrationWarning={true}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-muted-foreground" />
+                    {mounted && (
+                      showPassword ? (
+                        <EyeOff className="h-5 w-5 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-5 w-5 text-muted-foreground" />
+                      )
                     )}
                   </Button>
                 </div>
