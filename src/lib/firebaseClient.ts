@@ -2,55 +2,17 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
-import { getFirestore } from "firebase/firestore"; // Import Firestore
+import { getFirestore } from "firebase/firestore";
 
-// -----------------------------------------------------------------------------
-// ########################### IMPORTANT INSTRUCTIONS ##########################
-//
-// YOU MUST REPLACE THE PLACEHOLDER VALUES ("YOUR_API_KEY", "YOUR_AUTH_DOMAIN", ETC.)
-// BELOW WITH YOUR ACTUAL FIREBASE PROJECT CONFIGURATION.
-//
-// FAILURE TO DO SO WILL RESULT IN THE 'auth/api-key-not-valid' ERROR.
-//
-// How to find your Firebase config:
-// 1. Go to the Firebase Console: https://console.firebase.google.com/
-// 2. Select your project.
-// 3. Click the gear icon (Project settings) next to "Project Overview".
-// 4. In the "General" tab, scroll down to the "Your apps" section.
-// 5. If you haven't registered a web app, add one (click the </> icon).
-// 6. Find your web app and look for the "Firebase SDK snippet". Select "Config".
-// 7. Copy the values (apiKey, authDomain, projectId, etc.) from there.
-//
-// Replace EACH "YOUR_..." string below with the corresponding value.
-// For example, if your Firebase console shows:
-//   apiKey: "aiZaSyB...RandomChars...",
-// Then you would change:
-//   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "YOUR_API_KEY",
-// To:
-//   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "aiZaSyB...RandomChars...",
-//
-// (Or, if not using environment variables, directly to: apiKey: "aiZaSyB...RandomChars...")
-//
-// DO THIS FOR ALL THE FOLLOWING CONFIG VALUES:
-// - apiKey
-// - authDomain
-// - projectId
-// - storageBucket
-// - messagingSenderId
-// - appId
-// - measurementId (if you use it)
-//
-// #############################################################################
-// -----------------------------------------------------------------------------
-
+// Firebase configuration provided by the user.
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "YOUR_API_KEY", // <-- !!! REPLACE THIS !!!
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "YOUR_AUTH_DOMAIN", // <-- !!! REPLACE THIS !!!
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID", // <-- !!! REPLACE THIS !!!
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "YOUR_STORAGE_BUCKET", // <-- !!! REPLACE THIS !!!
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "YOUR_MESSAGING_SENDER_ID", // <-- !!! REPLACE THIS !!!
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "YOUR_APP_ID", // <-- !!! REPLACE THIS !!!
-  // measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "YOUR_MEASUREMENT_ID" // Optional: uncomment and REPLACE if you use Google Analytics
+  apiKey: "AIzaSyBAzdIIn10HGAEhfvwXEu0tEHvTW4PJDu8",
+  authDomain: "nexus-voting-panel-5uah0.firebaseapp.com",
+  projectId: "nexus-voting-panel-5uah0",
+  storageBucket: "nexus-voting-panel-5uah0.firebasestorage.app", // Corrected to firebasestorage.app as per your provided config.
+  messagingSenderId: "660782687862",
+  appId: "1:660782687862:web:e014e926647d0cec80e157"
+  // measurementId can be added here if needed
 };
 
 // Initialize Firebase
@@ -63,5 +25,5 @@ if (!getApps().length) {
 
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-export const db = getFirestore(app); // Initialize and export Firestore
+export const db = getFirestore(app);
 export default app;
