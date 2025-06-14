@@ -23,7 +23,7 @@ import { useRouter } from "next/navigation";
 import type { ElectionRoom } from "@/lib/types"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon } from "lucide-react";
-import { useState, ChangeEvent } from "react";
+import { useState, ChangeEvent, useEffect } from "react"; // Added useEffect
 import Image from "next/image";
 import { storage, db } from "@/lib/firebaseClient"; 
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
@@ -49,7 +49,7 @@ const electionRoomFormSchema = z.object({
   isAccessRestricted: z.boolean().default(false),
   accessCode: z.string().optional(),
   positions: z.array(positionSchema).min(1, "At least one position is required."),
-  status: z.enum(["pending", "active", "closed"]).optional(), // Added status field
+  status: z.enum(["pending", "active", "closed"]).optional(),
 }).refine(data => {
   if (data.isAccessRestricted && (!data.accessCode || data.accessCode.length < 4)) {
     return false;
@@ -74,15 +74,16 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
   const form = useForm<ElectionRoomFormValues>({
     resolver: zodResolver(electionRoomFormSchema),
     defaultValues: initialData ? {
-      ...initialData,
-      status: initialData.status || "pending", // Initialize status for editing
-      positions: initialData.positions.map(p => ({
+      ...initialData, // Use initialData directly
+      status: initialData.status || "pending",
+      // Ensure positions and candidates arrays are initialized if not present in initialData
+      positions: (initialData.positions || []).map(p => ({
         ...p,
-        id: p.id || `pos-${Math.random().toString(36).substr(2, 9)}`, 
-        candidates: p.candidates.map(c => ({ 
-            ...c, 
-            id: c.id || `cand-${Math.random().toString(36).substr(2, 9)}`, 
-            imageUrl: c.imageUrl || '' 
+        id: p.id || `pos-${Math.random().toString(36).substr(2, 9)}`, // Fallback ID for client-side consistency if needed
+        candidates: (p.candidates || []).map(c => ({
+            ...c,
+            id: c.id || `cand-${Math.random().toString(36).substr(2, 9)}`, // Fallback ID for client-side consistency
+            imageUrl: c.imageUrl || ''
         }))
       }))
     } : {
@@ -90,7 +91,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       description: "",
       isAccessRestricted: false,
       accessCode: "",
-      status: "pending", // Default for new forms, though overwritten on save
+      status: "pending",
       positions: [{ 
           id: `pos-${Math.random().toString(36).substr(2, 9)}`, 
           title: "", 
@@ -118,27 +119,32 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
 
     const firestoreReadyPositions = values.positions.map(p => ({
         title: p.title,
+        // Ensure candidates always have an id; Firestore might not need it if we don't query by it
+        // but it's good for consistency if we rebuild the form from Firestore data.
+        // For saving, we care more about name and imageUrl.
         candidates: p.candidates.map(c => ({
             name: c.name,
             imageUrl: c.imageUrl,
+            // id: c.id || `cand-${generateClientSideId()}`, // ID from form is fine, or generate if needed
+            voteCount: c.voteCount || 0 // Persist voteCount if it exists
         })),
+        id: p.id || `pos-${generateClientSideId()}` // Persist position id
     }));
 
-    const dataToSave: any = { // Use 'any' temporarily or define a more specific type for Firestore data
+    const dataToSave: any = { 
       title: values.title,
       description: values.description,
       isAccessRestricted: values.isAccessRestricted,
-      positions: firestoreReadyPositions,
+      positions: firestoreReadyPositions, // Use processed positions
     };
 
     if (values.isAccessRestricted) {
       dataToSave.accessCode = values.accessCode;
     } else {
-      // Explicitly ensure accessCode is not sent or is null/undefined if not restricted
-      dataToSave.accessCode = null; // Or delete dataToSave.accessCode;
+      dataToSave.accessCode = null; 
     }
     
-    if (initialData && values.status) { // Only include status if editing and status is provided
+    if (initialData && values.status) {
         dataToSave.status = values.status;
     }
 
@@ -149,17 +155,18 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
         await setDoc(roomRef, {
           ...dataToSave,
           updatedAt: serverTimestamp(),
+          // Ensure createdAt is not overwritten if it exists
+          createdAt: initialData.createdAt ? Timestamp.fromDate(new Date(initialData.createdAt)) : serverTimestamp(),
         }, { merge: true }); 
         toast({
           title: "Election Room Updated",
           description: `"${values.title}" has been successfully updated.`,
         });
       } else {
-        // Create new room
         await addDoc(collection(db, "electionRooms"), {
           ...dataToSave,
           createdAt: serverTimestamp(),
-          status: "pending", // New rooms always start as pending
+          status: "pending", 
         });
         toast({
           title: "Election Room Created",
@@ -210,7 +217,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           )}
         />
 
-        {initialData && ( // Only show status field when editing
+        {initialData && ( 
           <FormField
             control={form.control}
             name="status"
@@ -276,7 +283,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
 
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Positions and Candidates</h3>
-          {positionFields.map((positionItem, positionIndex) => (
+          {positionFields.map((positionItem, positionIndex) => ( // positionItem.id is from RHF
             <Card key={positionItem.id} className="relative group/position">
               <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
                 <CardTitle className="text-md">Position #{positionIndex + 1}</CardTitle>
@@ -369,17 +376,23 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
 
   const { toast } = useToast();
   const [uploadingStates, setUploadingStates] = useState<Record<string, boolean>>({});
+  const [isClientMounted, setIsClientMounted] = useState(false); // For hydration fix
+
+  useEffect(() => {
+    setIsClientMounted(true); // Component has mounted on client
+  }, []);
+
   const generateClientSideId = () => Math.random().toString(36).substr(2, 9);
 
   const handleFileChange = async (
     event: ChangeEvent<HTMLInputElement>,
-    candidateItemFieldId: string, 
+    candidateInternalId: string, // This is the RHF field id
     candidateIndex: number
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setUploadingStates(prev => ({ ...prev, [candidateItemFieldId]: true }));
+    setUploadingStates(prev => ({ ...prev, [candidateInternalId]: true }));
 
     try {
       const imageRef = storageRef(storage, `candidate-images/${Date.now()}-${file.name}`);
@@ -392,7 +405,7 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
       console.error("Image upload error:", error);
       toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload candidate image." });
     } finally {
-      setUploadingStates(prev => ({ ...prev, [candidateItemFieldId]: false }));
+      setUploadingStates(prev => ({ ...prev, [candidateInternalId]: false }));
       if (event.target) {
         event.target.value = "";
       }
@@ -406,8 +419,10 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
   return (
     <div className="space-y-6 pl-4 border-l-2 border-primary/20">
       <h4 className="text-sm font-medium text-muted-foreground">Candidates for this position:</h4>
-      {fields.map((candidateItem, candidateIndex) => {
+      {fields.map((candidateItem, candidateIndex) => { // candidateItem.id IS the stable RHF field ID
         const currentImageUrl = form.watch(`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`);
+        const uniqueFileId = isClientMounted ? `file-upload-${candidateItem.id}` : undefined;
+
         return (
           <div key={candidateItem.id} className="flex flex-col sm:flex-row items-start gap-4 group/candidate p-3 border rounded-md bg-background/50">
             <div className="flex-shrink-0 w-full sm:w-auto">
@@ -438,12 +453,14 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
                 name={`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`}
                 render={({ field }) => ( 
                   <Input
-                    id={`file-upload-${candidateItem.id}`}
+                    id={uniqueFileId} // Use client-side generated ID
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleFileChange(e, candidateItem.id, candidateIndex)}
                     className="mt-2 text-xs h-8"
                     disabled={uploadingStates[candidateItem.id]}
+                    // field.value and field.onChange are for the imageUrl string, not the file itself.
+                    // File input is largely uncontrolled by RHF value for native file inputs.
                   />
                 )}
               />
