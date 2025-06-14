@@ -39,12 +39,15 @@ export default function LoginForm() {
       email: "",
       password: "",
     },
-    shouldFocusError: false, 
+    shouldFocusError: false,
   });
 
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     try {
+      console.log("Attempting login with:", { email: values.email, password: "REDACTED_FOR_SECURITY_IN_FINAL_LOG" }); // Log values
+      // For your local debugging, you can temporarily log the actual password:
+      // console.log("Attempting login with:", { email: values.email, password: values.password });
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful",
@@ -58,7 +61,7 @@ export default function LoginForm() {
         case "auth/user-not-found":
         case "auth/wrong-password":
         case "auth/invalid-credential":
-          errorMessage = "Invalid email or password. Please check your credentials and ensure the user account exists and is enabled in the Firebase Console.";
+          errorMessage = "Invalid email or password. Please check your credentials. Ensure the user account exists, is enabled, and the password is correct.";
           break;
         case "auth/invalid-email":
           errorMessage = "The email address is not valid.";
@@ -96,10 +99,10 @@ export default function LoginForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input 
-                  type="email" 
-                  placeholder="admin@example.com" 
-                  {...field} 
+                <Input
+                  type="email"
+                  placeholder="admin@example.com"
+                  {...field}
                   className="text-base md:text-sm"
                   aria-required="true"
                   suppressHydrationWarning={true}
@@ -116,10 +119,10 @@ export default function LoginForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input 
-                  type="password" 
-                  placeholder="••••••••" 
-                  {...field} 
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  {...field}
                   className="text-base md:text-sm"
                   aria-required="true"
                   suppressHydrationWarning={true}
@@ -143,4 +146,3 @@ export default function LoginForm() {
     </Form>
   );
 }
-
