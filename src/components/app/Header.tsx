@@ -1,10 +1,8 @@
 
 import Link from 'next/link';
-import Image from 'next/image'; // Added import for Image component
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
-import { ShieldCheckIcon } from 'lucide-react'; 
-
-// Removed the old NexusLogo SVG component
+import { ShieldCheckIcon } from 'lucide-react';
 
 export default function Header() {
   return (
@@ -14,6 +12,7 @@ export default function Header() {
           {/* 
             Ensure 'NexusLogoFinalSquare.png' is placed directly in the 'public' folder 
             for this path (src="/NexusLogoFinalSquare.png") to work correctly.
+            The filename is case-sensitive.
           */}
           <Image 
             src="/NexusLogoFinalSquare.png" 
