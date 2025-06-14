@@ -8,10 +8,17 @@ export default {
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
+    container: {
+      center: true,
+      padding: "2rem",
+      screens: {
+        "2xl": "1400px",
+      },
+    },
     extend: {
       fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['Inter', 'sans-serif'],
+        body: ['var(--font-inter)', 'Inter', 'sans-serif'],
+        headline: ['var(--font-inter)', 'Inter', 'sans-serif'],
         code: ['monospace'],
       },
       colors: {
@@ -55,15 +62,15 @@ export default {
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
         },
-        sidebar: {
-          DEFAULT: 'hsl(var(--sidebar-background))',
-          foreground: 'hsl(var(--sidebar-foreground))',
-          primary: 'hsl(var(--sidebar-primary))',
-          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-          accent: 'hsl(var(--sidebar-accent))',
-          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-          border: 'hsl(var(--sidebar-border))',
-          ring: 'hsl(var(--sidebar-ring))',
+        sidebar: { // Keeping this structure, updated primary
+          DEFAULT: 'hsl(var(--card))', // Using card as default sidebar background
+          foreground: 'hsl(var(--card-foreground))',
+          primary: 'hsl(var(--primary))', // Ensure this uses the app's primary
+          'primary-foreground': 'hsl(var(--primary-foreground))',
+          accent: 'hsl(var(--accent))', // Ensure this uses the app's accent
+          'accent-foreground': 'hsl(var(--accent-foreground))',
+          border: 'hsl(var(--border))',
+          ring: 'hsl(var(--ring))',
         },
       },
       borderRadius: {
