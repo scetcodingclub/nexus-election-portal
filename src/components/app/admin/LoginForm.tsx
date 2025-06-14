@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { signInWithEmailAndPassword, AuthError } from "firebase/auth";
-import { auth } from "@/lib/firebaseClient"; // Import Firebase auth instance
+import { auth } from "@/lib/firebaseClient";
 
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -45,9 +45,10 @@ export default function LoginForm() {
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     try {
-      console.log("Attempting login with:", { email: values.email, password: "REDACTED_FOR_SECURITY_IN_FINAL_LOG" }); // Log values
+      // Log values for debugging. In a real production log, you'd redact the password.
+      console.log("Attempting login with:", { email: values.email, password: "REDACTED_FOR_SECURITY_IN_FINAL_LOG" });
       // For your local debugging, you can temporarily log the actual password:
-      // console.log("Attempting login with:", { email: values.email, password: values.password });
+      // console.log("Attempting login with:", { email: values.email, password: values.password }); 
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful",
