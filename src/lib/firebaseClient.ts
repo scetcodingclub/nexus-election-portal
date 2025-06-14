@@ -9,10 +9,9 @@ const firebaseConfig = {
   apiKey: "AIzaSyBAzdIIn10HGAEhfvwXEu0tEHvTW4PJDu8",
   authDomain: "nexus-voting-panel-5uah0.firebaseapp.com",
   projectId: "nexus-voting-panel-5uah0",
-  storageBucket: "nexus-voting-panel-5uah0.firebasestorage.app", // Corrected to firebasestorage.app as per your provided config.
+  storageBucket: "nexus-voting-panel-5uah0.firebasestorage.app",
   messagingSenderId: "660782687862",
   appId: "1:660782687862:web:e014e926647d0cec80e157"
-  // measurementId can be added here if needed
 };
 
 // Initialize Firebase
