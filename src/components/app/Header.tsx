@@ -12,11 +12,11 @@ export default function Header() {
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
           {/* 
-            Ensure 'nexus-logo.png' is placed directly in the 'public' folder 
-            for this path (src="/nexus-logo.png") to work correctly.
+            Ensure 'NexusLogoFinalSquare.png' is placed directly in the 'public' folder 
+            for this path (src="/NexusLogoFinalSquare.png") to work correctly.
           */}
           <Image 
-            src="/nexus-logo.png" 
+            src="/NexusLogoFinalSquare.png" 
             alt="NEXUS: Next-Gen Coders United Society Logo" 
             width={150} 
             height={42} 
