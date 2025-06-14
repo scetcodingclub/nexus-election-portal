@@ -20,14 +20,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import type { ElectionRoom } from "@/lib/types"; 
+import type { ElectionRoom, Position as PositionType, Candidate as CandidateType } from "@/lib/types"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon } from "lucide-react";
-import { useState, ChangeEvent, useEffect } from "react"; // Added useEffect
+import { useState, ChangeEvent, useEffect } from "react";
 import Image from "next/image";
 import { storage, db } from "@/lib/firebaseClient"; 
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { doc, setDoc, addDoc, collection, serverTimestamp } from "firebase/firestore"; 
+import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore"; 
 import { cn } from "@/lib/utils";
 
 
@@ -35,6 +35,7 @@ const candidateSchema = z.object({
   id: z.string().optional(), 
   name: z.string().min(1, "Candidate name is required."),
   imageUrl: z.string().url("Image URL must be a valid URL.").optional().or(z.literal('')),
+  voteCount: z.number().optional(), // Keep voteCount
 });
 
 const positionSchema = z.object({
@@ -66,76 +67,89 @@ interface ElectionRoomFormProps {
   initialData?: ElectionRoom; 
 }
 
+// Helper to generate client-side unique IDs
+const generateClientSideId = (prefix: string = "item") => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
+
+
 export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isFormMounted, setIsFormMounted] = useState(false);
+
 
   const form = useForm<ElectionRoomFormValues>({
     resolver: zodResolver(electionRoomFormSchema),
     defaultValues: initialData ? {
-      ...initialData, // Use initialData directly
+      title: initialData.title || "",
+      description: initialData.description || "",
+      isAccessRestricted: initialData.isAccessRestricted || false,
+      accessCode: initialData.accessCode || "",
       status: initialData.status || "pending",
-      // Ensure positions and candidates arrays are initialized if not present in initialData
       positions: (initialData.positions || []).map(p => ({
-        ...p,
-        id: p.id || `pos-${Math.random().toString(36).substr(2, 9)}`, // Fallback ID for client-side consistency if needed
+        id: p.id, // Use Firestore ID for our data model
+        title: p.title || "",
         candidates: (p.candidates || []).map(c => ({
-            ...c,
-            id: c.id || `cand-${Math.random().toString(36).substr(2, 9)}`, // Fallback ID for client-side consistency
-            imageUrl: c.imageUrl || ''
-        }))
-      }))
-    } : {
+          id: c.id, // Use Firestore ID for our data model
+          name: c.name || "",
+          imageUrl: c.imageUrl || "",
+          voteCount: c.voteCount || 0,
+        })),
+      })),
+    } : { // For new forms
       title: "",
       description: "",
       isAccessRestricted: false,
       accessCode: "",
       status: "pending",
-      positions: [{ 
-          id: `pos-${Math.random().toString(36).substr(2, 9)}`, 
-          title: "", 
-          candidates: [{ 
-              id: `cand-${Math.random().toString(36).substr(2, 9)}`, 
-              name: "", 
-              imageUrl: "" 
-            }] 
-        }],
+      positions: [], // Initialize as empty, will be populated by useEffect
     },
   });
-
+  
   const { fields: positionFields, append: appendPosition, remove: removePosition } = useFieldArray({
     control: form.control,
     name: "positions",
   });
+
+  // Populate initial position for new forms on client mount
+  useEffect(() => {
+    setIsFormMounted(true);
+    if (!initialData && positionFields.length === 0 && form.formState.isMounted) {
+      appendPosition({
+        id: generateClientSideId('pos'), // Application-specific ID
+        title: "",
+        candidates: [{
+          id: generateClientSideId('cand'), // Application-specific ID
+          name: "",
+          imageUrl: ""
+        }]
+      });
+    }
+  }, [initialData, appendPosition, positionFields.length, form.formState.isMounted]);
   
   const watchIsAccessRestricted = form.watch("isAccessRestricted");
-
-  const generateClientSideId = () => Math.random().toString(36).substr(2, 9);
 
 
   async function onSubmit(values: ElectionRoomFormValues) {
     setIsLoading(true);
 
     const firestoreReadyPositions = values.positions.map(p => ({
+        id: p.id || generateClientSideId('pos'), // Ensure ID for Firestore
         title: p.title,
-        // Ensure candidates always have an id; Firestore might not need it if we don't query by it
-        // but it's good for consistency if we rebuild the form from Firestore data.
-        // For saving, we care more about name and imageUrl.
         candidates: p.candidates.map(c => ({
+            id: c.id || generateClientSideId('cand'), // Ensure ID for Firestore
             name: c.name,
             imageUrl: c.imageUrl,
-            // id: c.id || `cand-${generateClientSideId()}`, // ID from form is fine, or generate if needed
-            voteCount: c.voteCount || 0 // Persist voteCount if it exists
+            voteCount: c.voteCount || 0 
         })),
-        id: p.id || `pos-${generateClientSideId()}` // Persist position id
     }));
 
     const dataToSave: any = { 
       title: values.title,
       description: values.description,
       isAccessRestricted: values.isAccessRestricted,
-      positions: firestoreReadyPositions, // Use processed positions
+      positions: firestoreReadyPositions,
+      status: values.status || 'pending', // Ensure status is always set
     };
 
     if (values.isAccessRestricted) {
@@ -144,18 +158,12 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       dataToSave.accessCode = null; 
     }
     
-    if (initialData && values.status) {
-        dataToSave.status = values.status;
-    }
-
-
     try {
       if (initialData?.id) {
         const roomRef = doc(db, "electionRooms", initialData.id);
         await setDoc(roomRef, {
           ...dataToSave,
           updatedAt: serverTimestamp(),
-          // Ensure createdAt is not overwritten if it exists
           createdAt: initialData.createdAt ? Timestamp.fromDate(new Date(initialData.createdAt)) : serverTimestamp(),
         }, { merge: true }); 
         toast({
@@ -163,10 +171,11 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           description: `"${values.title}" has been successfully updated.`,
         });
       } else {
+        // New room explicitly sets status to pending if not provided (though schema default handles it)
+        dataToSave.status = dataToSave.status || 'pending';
         await addDoc(collection(db, "electionRooms"), {
           ...dataToSave,
           createdAt: serverTimestamp(),
-          status: "pending", 
         });
         toast({
           title: "Election Room Created",
@@ -186,6 +195,17 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       setIsLoading(false);
     }
   }
+  
+  if (!isFormMounted && !initialData) {
+    // Render a loader or minimal content until the form is ready for new entries
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-2">Loading form...</p>
+      </div>
+    );
+  }
+
 
   return (
     <Form {...form}>
@@ -197,7 +217,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             <FormItem>
               <FormLabel>Election Title</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Annual Student Body Election" {...field} />
+                <Input placeholder="e.g., Annual Student Body Election" {...field} suppressHydrationWarning={true} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -210,7 +230,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea placeholder="Provide a brief description of the election." {...field} rows={4} />
+                <Textarea placeholder="Provide a brief description of the election." {...field} rows={4} suppressHydrationWarning={true} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -224,9 +244,9 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Election Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} >
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger suppressHydrationWarning={true}>
                       <SelectValue placeholder="Select election status" />
                     </SelectTrigger>
                   </FormControl>
@@ -251,7 +271,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           render={({ field }) => (
             <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
               <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                <Checkbox checked={field.value} onCheckedChange={field.onChange} suppressHydrationWarning={true}/>
               </FormControl>
               <div className="space-y-1 leading-none">
                 <FormLabel>Restrict Access?</FormLabel>
@@ -270,7 +290,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
               <FormItem>
                 <FormLabel>Access Code</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., VOTE2024" {...field} />
+                  <Input placeholder="e.g., VOTE2024" {...field} suppressHydrationWarning={true} />
                 </FormControl>
                 <FormDescription>
                   A unique code for voters to access this room. Minimum 4 characters.
@@ -283,12 +303,12 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
 
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Positions and Candidates</h3>
-          {positionFields.map((positionItem, positionIndex) => ( // positionItem.id is from RHF
+          {positionFields.map((positionItem, positionIndex) => ( 
             <Card key={positionItem.id} className="relative group/position">
               <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
                 <CardTitle className="text-md">Position #{positionIndex + 1}</CardTitle>
                 <div className="flex items-center gap-2">
-                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 cursor-grab active:cursor-grabbing opacity-50 group-hover/position:opacity-100 transition-opacity">
+                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 cursor-grab active:cursor-grabbing opacity-50 group-hover/position:opacity-100 transition-opacity" suppressHydrationWarning={true}>
                      <GripVertical className="h-4 w-4" />
                    </Button>
                   {positionFields.length > 1 && (
@@ -298,6 +318,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
                       size="icon"
                       onClick={() => removePosition(positionIndex)}
                       className="text-destructive hover:bg-destructive/10 h-7 w-7"
+                      suppressHydrationWarning={true}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -312,7 +333,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
                     <FormItem>
                       <FormLabel>Position Title</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., President" {...field} />
+                        <Input placeholder="e.g., President" {...field} suppressHydrationWarning={true} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -326,15 +347,16 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             type="button"
             variant="outline"
             onClick={() => appendPosition({ 
-                id: `pos-${generateClientSideId()}`, 
+                id: generateClientSideId('pos'), 
                 title: "", 
                 candidates: [{ 
-                    id: `cand-${generateClientSideId()}`, 
+                    id: generateClientSideId('cand'), 
                     name: "", 
                     imageUrl:"" 
                 }] 
             })}
             className="w-full"
+            suppressHydrationWarning={true}
           >
             <PlusCircle className="mr-2 h-4 w-4" /> Add Position
           </Button>
@@ -346,7 +368,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
            )}
         </div>
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        <Button type="submit" className="w-full" disabled={isLoading} suppressHydrationWarning={true}>
            {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -376,23 +398,21 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
 
   const { toast } = useToast();
   const [uploadingStates, setUploadingStates] = useState<Record<string, boolean>>({});
-  const [isClientMounted, setIsClientMounted] = useState(false); // For hydration fix
+  const [isClientMounted, setIsClientMounted] = useState(false); 
 
   useEffect(() => {
-    setIsClientMounted(true); // Component has mounted on client
+    setIsClientMounted(true); 
   }, []);
-
-  const generateClientSideId = () => Math.random().toString(36).substr(2, 9);
 
   const handleFileChange = async (
     event: ChangeEvent<HTMLInputElement>,
-    candidateInternalId: string, // This is the RHF field id
+    rhfCandidateId: string, // This is the RHF field id (candidateItem.id)
     candidateIndex: number
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    setUploadingStates(prev => ({ ...prev, [candidateInternalId]: true }));
+    setUploadingStates(prev => ({ ...prev, [rhfCandidateId]: true }));
 
     try {
       const imageRef = storageRef(storage, `candidate-images/${Date.now()}-${file.name}`);
@@ -405,9 +425,9 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
       console.error("Image upload error:", error);
       toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload candidate image." });
     } finally {
-      setUploadingStates(prev => ({ ...prev, [candidateInternalId]: false }));
+      setUploadingStates(prev => ({ ...prev, [rhfCandidateId]: false }));
       if (event.target) {
-        event.target.value = "";
+        event.target.value = ""; // Reset file input
       }
     }
   };
@@ -421,7 +441,8 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
       <h4 className="text-sm font-medium text-muted-foreground">Candidates for this position:</h4>
       {fields.map((candidateItem, candidateIndex) => { // candidateItem.id IS the stable RHF field ID
         const currentImageUrl = form.watch(`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`);
-        const uniqueFileId = isClientMounted ? `file-upload-${candidateItem.id}` : undefined;
+        // Use RHF's stable candidateItem.id for generating a unique ID for the file input
+        const uniqueFileIdForInput = isClientMounted ? `file-upload-${candidateItem.id}` : undefined;
 
         return (
           <div key={candidateItem.id} className="flex flex-col sm:flex-row items-start gap-4 group/candidate p-3 border rounded-md bg-background/50">
@@ -453,14 +474,14 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
                 name={`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`}
                 render={({ field }) => ( 
                   <Input
-                    id={uniqueFileId} // Use client-side generated ID
+                    id={uniqueFileIdForInput} // Use client-side generated ID based on RHF's field.id
                     type="file"
                     accept="image/*"
                     onChange={(e) => handleFileChange(e, candidateItem.id, candidateIndex)}
                     className="mt-2 text-xs h-8"
                     disabled={uploadingStates[candidateItem.id]}
-                    // field.value and field.onChange are for the imageUrl string, not the file itself.
-                    // File input is largely uncontrolled by RHF value for native file inputs.
+                    suppressHydrationWarning={true} 
+                    // field.value (imageUrl string) is handled by RHF setValue, file input value is not directly controlled for files
                   />
                 )}
               />
@@ -475,7 +496,7 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
                     <FormItem>
                     <FormLabel className="text-xs">Candidate Name</FormLabel>
                     <FormControl>
-                        <Input placeholder={`Candidate ${candidateIndex + 1} Name`} {...field} />
+                        <Input placeholder={`Candidate ${candidateIndex + 1} Name`} {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -491,6 +512,7 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
                 onClick={() => remove(candidateIndex)}
                 className="text-destructive hover:bg-destructive/10 h-8 w-8 opacity-50 group-hover/candidate:opacity-100 transition-opacity self-start sm:self-center mt-2 sm:mt-0"
                 disabled={uploadingStates[candidateItem.id]}
+                suppressHydrationWarning={true}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -502,8 +524,9 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
         type="button"
         variant="link"
         size="sm"
-        onClick={() => append({ id: `cand-${generateClientSideId()}`, name: "", imageUrl: "" })}
+        onClick={() => append({ id: generateClientSideId('cand'), name: "", imageUrl: "" })}
         className="text-primary hover:text-primary/80 px-0"
+        suppressHydrationWarning={true}
       >
         <PlusCircle className="mr-1 h-4 w-4" /> Add Candidate
       </Button>
@@ -515,4 +538,5 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
     </div>
   );
 }
+
 
