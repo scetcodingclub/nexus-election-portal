@@ -18,6 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { signInWithEmailAndPassword, AuthError } from "firebase/auth";
+import { auth } from "@/lib/firebaseClient"; // Import Firebase auth instance
 
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -41,21 +43,38 @@ export default function LoginForm() {
 
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    if (values.email === "Izzathalkaf@gmail.com" && values.password === "Nexus@gmail786") {
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful",
         description: "Redirecting to dashboard...",
       });
       router.push("/admin/dashboard");
-    } else {
+    } catch (error) {
+      const authError = error as AuthError;
+      let errorMessage = "An unexpected error occurred. Please try again.";
+      switch (authError.code) {
+        case "auth/user-not-found":
+        case "auth/wrong-password":
+        case "auth/invalid-credential":
+          errorMessage = "Invalid email or password.";
+          break;
+        case "auth/invalid-email":
+          errorMessage = "The email address is not valid.";
+          break;
+        case "auth/user-disabled":
+          errorMessage = "This user account has been disabled.";
+          break;
+        default:
+          errorMessage = "Login failed. Please try again.";
+          break;
+      }
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: "Invalid email or password.",
+        description: errorMessage,
       });
+      console.error("Firebase Auth Error:", authError);
     }
     setIsLoading(false);
   }
@@ -115,4 +134,3 @@ export default function LoginForm() {
     </Form>
   );
 }
-
