@@ -59,13 +59,13 @@ export default function LoginForm() {
         case "auth/user-not-found":
         case "auth/wrong-password":
         case "auth/invalid-credential":
-          errorMessage = "Invalid email or password. Please check your credentials or ensure the user account exists and is enabled.";
+          errorMessage = "Invalid email or password. Please check your credentials in the Firebase Console and ensure the user account exists and is enabled.";
           break;
         case "auth/invalid-email":
           errorMessage = "The email address is not valid.";
           break;
         case "auth/user-disabled":
-          errorMessage = "This user account has been disabled.";
+          errorMessage = "This user account has been disabled. Please enable it in the Firebase Console.";
           break;
         case "auth/api-key-not-valid":
              errorMessage = "Firebase API Key is not valid. Please check your Firebase project configuration in src/lib/firebaseClient.ts.";
@@ -144,4 +144,3 @@ export default function LoginForm() {
     </Form>
   );
 }
-
