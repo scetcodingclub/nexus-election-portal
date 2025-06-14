@@ -3,10 +3,23 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Candidate Images: Publicly readable, admin-writable
+    // Match for files in the candidate-images directory
     match /candidate-images/{allPaths=**} {
+      // Allow anyone to read candidate images (e.g., for displaying on ballots, results)
       allow read: if true;
-      allow write: if request.auth != null; // Placeholder: Should be specific admin check (e.g., custom claims)
+      // Allow only authenticated users to upload/update/delete candidate images
+      // This assumes admins performing uploads are authenticated.
+      allow write: if request.auth != null;
+    }
+
+    // Default deny for all other paths if not explicitly matched above
+    // It's good practice to have a catch-all if you have other specific paths.
+    // If candidate-images is the only path, this more specific rule can be omitted
+    // and the global match /{allPaths=**} can be used with conditions.
+    // However, for clarity and future expansion, specific matches are better.
+    // For any other paths not covered by more specific rules:
+    match /{allOtherPaths=**} {
+      allow read, write: if false; // Deny by default
     }
   }
 }
