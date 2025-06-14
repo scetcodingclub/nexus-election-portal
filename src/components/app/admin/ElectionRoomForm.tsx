@@ -257,7 +257,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  Manage the current state of the election room.
+                  Manage the current state. Set to 'Active' to start the election and allow voting.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
