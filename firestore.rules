@@ -4,31 +4,45 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Election Rooms: Publicly readable, admin-managed
+    // Election Rooms: Manages election room configurations and vote counts
     match /electionRooms/{roomId} {
-      allow read: if true;
-      allow create: if request.auth != null; // Placeholder: Should be specific admin check
-      allow update: if request.auth != null; // Placeholder: Should be specific admin check
-                                        // Vote count updates are part of a transaction:
-                                        // Allow if trying to update 'positions' and room is 'active'
-                                        // or if admin is updating other fields.
-                                        // A more granular rule would be:
-                                        // if (request.auth != null && resource.data.status == 'active' && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['positions', 'updatedAt'])) ||
-                                        //    (request.auth != null && request.auth.token.admin == true); // Example admin custom claim
-      allow delete: if request.auth != null; // Placeholder: Should be specific admin check
+      // Admins (authenticated users) can perform any operation.
+      // Anyone can read an election room (needed for voters to see ballot and for various pages).
+      allow read: if true; // Allows voters to get room details and admins to list/get rooms.
+      allow create, delete: if request.auth != null; // Only admins can create or delete rooms.
+
+      // Admins can update any part of the room.
+      // For vote submission (potentially by unauthenticated users via server action):
+      // Allow updating only 'positions' (for vote counts) and 'updatedAt'
+      // if the room is 'active' and other critical fields are not changed.
+      allow update: if request.auth != null ||
+                       (
+                         resource.data.status == 'active' && // Existing room must be active
+                         request.resource.data.status == resource.data.status && // Status must not be changed by non-admin
+                         request.resource.data.title == resource.data.title && // Title should not be changed by voter
+                         request.resource.data.description == resource.data.description && // Description should not be changed by voter
+                         request.resource.data.isAccessRestricted == resource.data.isAccessRestricted && // Access restriction should not be changed by voter
+                         request.resource.data.accessCode == resource.data.accessCode && // Access code should not be changed by voter
+                         // Ensure only positions (for vote counts) and updatedAt can be modified by the voting process
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['positions', 'updatedAt'])
+                       );
     }
 
-    // User Votes: Records who voted in which election
+    // User Votes: Tracks which user has voted in which election to prevent multiple votes.
     match /userVotes/{voteId} {
-      allow read: if false; // Users should not be able to list who voted. Admins might via a trusted backend.
-      allow create: if request.auth != null && // User must be "authenticated" (e.g. session started by entering email)
-                       get(/databases/$(database)/documents/electionRooms/$(request.resource.data.roomId)).data.status == 'active' &&
-                       request.resource.data.roomId != null &&
-                       request.resource.data.userEmail != null;
-                       // The "vote once" logic is primarily handled by client-side transaction which queries first.
-                       // This rule ensures votes are only for active elections.
-      allow update: if false;
-      allow delete: if false;
+      // Anyone can create a 'userVote' document (i.e., cast their vote record)
+      // provided the referenced election room is currently 'active'.
+      // Basic validation for required fields should be present.
+      allow create: if request.resource.data.roomId is string &&
+                       request.resource.data.userEmail is string &&
+                       get(/databases/$(database)/documents/electionRooms/$(request.resource.data.roomId)).data.status == 'active';
+
+      // Only admins (authenticated users) can read specific vote records.
+      // This is used by 'checkUserHasVoted'.
+      allow read: if request.auth != null;
+
+      // No one should be able to update or delete a vote record directly via client rules.
+      allow update, delete: if false;
     }
   }
 }
