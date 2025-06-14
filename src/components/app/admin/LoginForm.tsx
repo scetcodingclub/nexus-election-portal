@@ -39,7 +39,7 @@ export default function LoginForm() {
       email: "",
       password: "",
     },
-    shouldFocusError: false, // To prevent focus on server-side validation errors on hydration if any
+    shouldFocusError: false, 
   });
 
   async function onSubmit(values: LoginFormValues) {
@@ -59,7 +59,7 @@ export default function LoginForm() {
         case "auth/user-not-found":
         case "auth/wrong-password":
         case "auth/invalid-credential":
-          errorMessage = "Invalid email or password. Please check your credentials or ensure the user account exists.";
+          errorMessage = "Invalid email or password. Please check your credentials or ensure the user account exists and is enabled.";
           break;
         case "auth/invalid-email":
           errorMessage = "The email address is not valid.";
