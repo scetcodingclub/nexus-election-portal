@@ -39,6 +39,7 @@ export default function LoginForm() {
       email: "",
       password: "",
     },
+    shouldFocusError: false, // To prevent focus on server-side validation errors on hydration if any
   });
 
   async function onSubmit(values: LoginFormValues) {
@@ -58,7 +59,7 @@ export default function LoginForm() {
         case "auth/user-not-found":
         case "auth/wrong-password":
         case "auth/invalid-credential":
-          errorMessage = "Invalid email or password.";
+          errorMessage = "Invalid email or password. Please check your credentials or ensure the user account exists.";
           break;
         case "auth/invalid-email":
           errorMessage = "The email address is not valid.";
@@ -66,7 +67,6 @@ export default function LoginForm() {
         case "auth/user-disabled":
           errorMessage = "This user account has been disabled.";
           break;
-        case "auth/invalid-api-key":
         case "auth/api-key-not-valid":
              errorMessage = "Firebase API Key is not valid. Please check your Firebase project configuration in src/lib/firebaseClient.ts.";
              break;
@@ -144,3 +144,4 @@ export default function LoginForm() {
     </Form>
   );
 }
+
