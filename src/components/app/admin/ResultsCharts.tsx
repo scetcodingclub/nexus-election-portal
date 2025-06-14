@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Position } from "@/lib/types";
@@ -14,7 +15,6 @@ import {
   Cell,
   Legend,
 } from "recharts"; // Shadcn/ui charts use recharts
-import { useTheme } from "next-themes"; // For adapting chart colors to theme, though our theme is fixed dark.
 import { useMemo } from "react";
 
 interface ResultsChartsProps {
@@ -34,7 +34,6 @@ const CHART_COLORS = [
 
 
 export default function ResultsCharts({ positions }: ResultsChartsProps) {
-  const { resolvedTheme } = useTheme(); // Only if we need to adapt to light/dark, current setup is dark only
   const foregroundColor = "hsl(var(--foreground))"; // From globals.css
   const mutedForegroundColor = "hsl(var(--muted-foreground))";
 
