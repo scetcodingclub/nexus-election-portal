@@ -44,6 +44,7 @@ export default function LoginForm() {
   async function onSubmit(values: LoginFormValues) {
     setIsLoading(true);
     try {
+      // await signInWithEmailAndPassword(auth, "Izzathalkaf@gmail.com", "Nexus@gmail786");
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful",
@@ -65,6 +66,11 @@ export default function LoginForm() {
         case "auth/user-disabled":
           errorMessage = "This user account has been disabled.";
           break;
+        // Handle specific error for invalid API key, though this should be fixed by user config
+        case "auth/invalid-api-key":
+        case "auth/api-key-not-valid": // Common variation of the error code
+             errorMessage = "Firebase API Key is not valid. Please check your Firebase project configuration.";
+             break;
         default:
           errorMessage = "Login failed. Please try again.";
           break;
@@ -95,6 +101,7 @@ export default function LoginForm() {
                   {...field} 
                   className="text-base md:text-sm"
                   aria-required="true"
+                  suppressHydrationWarning={true}
                 />
               </FormControl>
               <FormMessage />
@@ -114,13 +121,14 @@ export default function LoginForm() {
                   {...field} 
                   className="text-base md:text-sm"
                   aria-required="true"
+                  suppressHydrationWarning={true}
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        <Button type="submit" className="w-full" disabled={isLoading} suppressHydrationWarning={true}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
