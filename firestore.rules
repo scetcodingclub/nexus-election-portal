@@ -3,48 +3,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // WARNING: TEMPORARILY VERY PERMISSIVE FOR DEBUGGING READS
-    // This rule allows ANYONE to read ANY document in your database.
-    // This is for diagnostic purposes ONLY.
-    // If your app works with this, it confirms a read permission issue.
-    // You MUST secure this immediately after testing.
+    // WARNING: ALLOWS ALL READS AND WRITES TO ALL DOCUMENTS
+    // THIS IS FOR DIAGNOSTIC PURPOSES ONLY.
+    // REPLACE WITH SECURE RULES IMMEDIATELY AFTER TESTING.
     match /{document=**} {
-      allow read: if true;
-    }
-
-    // Function to check if a user is an admin
-    // For now, any authenticated user is treated as an admin for write operations.
-    function isAdmin() {
-      return request.auth != null;
-    }
-
-    // Election Rooms
-    match /electionRooms/{roomId} {
-      // Admins can write/delete
-      // The global read rule above covers reads for now.
-      allow create, update, delete: if isAdmin();
-
-      // Specific update rule for vote counting by the recordUserVote function
-      // This rule allows updating 'positions' and 'updatedAt' if the room is 'active'.
-      // This check is on the existing document's data.
-      allow update: if request.auth != null && // Assuming recordUserVote implies some form of auth context
-                       resource.data.status == 'active' &&
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['positions', 'updatedAt']);
-    }
-
-    // User Votes (to track who has voted to prevent duplicates)
-    match /userVotes/{voteId} {
-      // Anyone can create a vote record IF the election room they are voting in is 'active'.
-      // This requires checking the status of the election room document.
-      // The global read rule above covers reads for now.
-      allow create: if get(/databases/$(database)/documents/electionRooms/$(request.resource.data.roomId)).data.status == 'active';
-
-      // Admins can list user votes for audit purposes.
-      allow list: if isAdmin(); // List is a read operation, covered by global but can be more specific.
-
-      // Users cannot update/delete their vote records after casting.
-      allow update, delete: if false;
+      allow read, write: if true;
     }
   }
 }
