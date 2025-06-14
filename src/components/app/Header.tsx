@@ -1,22 +1,23 @@
 import Link from 'next/link';
+import Image from 'next/image'; // Added import for Image component
 import { Button } from '@/components/ui/button';
-import { VoteIcon, ShieldCheckIcon } from 'lucide-react'; // VoteIcon might not exist, placeholder. Using ListChecks instead.
+import { ShieldCheckIcon } from 'lucide-react'; 
 
-const NexusLogo = () => (
-  <svg width="32" height="32" viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className="text-primary mr-2">
-    <path d="M50 0L61.8 23.5L88.2 23.5L68.2 38.2L76.4 61.8L50 47.6L23.6 61.8L31.8 38.2L11.8 23.5L38.2 23.5L50 0Z" />
-    <path d="M50 100L38.2 76.5L11.8 76.5L31.8 61.8L23.6 38.2L50 52.4L76.4 38.2L68.2 61.8L88.2 76.5L61.8 76.5L50 100Z" />
-  </svg>
-);
-
+// Removed the old NexusLogo SVG component
 
 export default function Header() {
   return (
     <header className="bg-card shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/" className="flex items-center text-2xl font-headline font-bold hover:opacity-80 transition-opacity">
-          <NexusLogo />
-          NEXUS Voting
+        <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+          {/* Use the new PNG logo */}
+          <Image 
+            src="/nexus-logo.png" 
+            alt="NEXUS: Next-Gen Coders United Society Logo" 
+            width={150} 
+            height={42} 
+            priority // Add priority if this is LCP
+          />
         </Link>
         <nav className="space-x-2">
           <Button variant="ghost" asChild>
