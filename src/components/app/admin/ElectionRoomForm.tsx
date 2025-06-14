@@ -1,7 +1,8 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,12 +21,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import type { ElectionRoom, Position, Candidate } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Loader2, GripVertical } from "lucide-react";
-import { useState } from "react";
+import { PlusCircle, Trash2, Loader2, GripVertical, UploadCloud, Image as ImageIcon } from "lucide-react";
+import { useState, ChangeEvent } from "react";
+import Image from "next/image";
+import { storage } from "@/lib/firebaseClient"; // Import Firebase storage
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { cn } from "@/lib/utils";
+
 
 const candidateSchema = z.object({
   name: z.string().min(1, "Candidate name is required."),
-  // imageUrl: z.string().url("Must be a valid URL.").optional().or(z.literal('')), // Optional for now
+  imageUrl: z.string().url("Image URL must be a valid URL.").optional().or(z.literal('')),
 });
 
 const positionSchema = z.object({
@@ -66,14 +72,14 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       ...initialData,
       positions: initialData.positions.map(p => ({
         ...p,
-        candidates: p.candidates.map(c => ({ name: c.name /* imageUrl: c.imageUrl */ }))
+        candidates: p.candidates.map(c => ({ name: c.name, imageUrl: c.imageUrl || '' }))
       }))
     } : {
       title: "",
       description: "",
       isAccessRestricted: false,
       accessCode: "",
-      positions: [{ title: "", candidates: [{ name: "" }] }],
+      positions: [{ title: "", candidates: [{ name: "", imageUrl: "" }] }],
     },
   });
 
@@ -90,11 +96,14 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
     await new Promise(resolve => setTimeout(resolve, 2000));
     console.log("Form submitted:", values);
 
+    // Here you would typically save to Firestore or your backend
+    // For now, we just show a toast and redirect
+
     toast({
       title: initialData ? "Election Room Updated" : "Election Room Created",
       description: `"${values.title}" has been successfully ${initialData ? 'updated' : 'created'}.`,
     });
-    router.push("/admin/dashboard");
+    router.push("/admin/dashboard"); // Or to the manage page if editing: `/admin/rooms/${initialData.id}/manage`
     setIsLoading(false);
   }
 
@@ -200,14 +209,14 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
                     </FormItem>
                   )}
                 />
-                <CandidateFields positionIndex={positionIndex} control={form.control} />
+                <CandidateFields positionIndex={positionIndex} form={form} control={form.control} />
               </CardContent>
             </Card>
           ))}
           <Button
             type="button"
             variant="outline"
-            onClick={() => appendPosition({ title: "", candidates: [{ name: "" }] })}
+            onClick={() => appendPosition({ title: "", candidates: [{ name: "", imageUrl:"" }] })}
             className="w-full"
           >
             <PlusCircle className="mr-2 h-4 w-4" /> Add Position
@@ -236,74 +245,143 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
 }
 
 
-function CandidateFields({ positionIndex, control }: { positionIndex: number; control: any }) {
+interface CandidateFieldsProps {
+  positionIndex: number;
+  control: any; // react-hook-form control
+  form: any; // react-hook-form form object
+}
+
+function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: `positions.${positionIndex}.candidates`,
   });
 
-  const { formState: { errors } } = useForm({ control });
+  const { toast } = useToast();
+  const [uploadingStates, setUploadingStates] = useState<Record<string, boolean>>({});
+
+  const handleFileChange = async (
+    event: ChangeEvent<HTMLInputElement>,
+    candidateItemFieldId: string, // use field.id from RHF for unique state key
+    candidateIndex: number
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploadingStates(prev => ({ ...prev, [candidateItemFieldId]: true }));
+
+    try {
+      const imageRef = storageRef(storage, `candidate-images/${Date.now()}-${file.name}`);
+      await uploadBytes(imageRef, file);
+      const downloadURL = await getDownloadURL(imageRef);
+
+      form.setValue(`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`, downloadURL);
+      toast({ title: "Image Uploaded", description: "Candidate image successfully uploaded." });
+    } catch (error) {
+      console.error("Image upload error:", error);
+      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload candidate image." });
+    } finally {
+      setUploadingStates(prev => ({ ...prev, [candidateItemFieldId]: false }));
+    }
+  };
+  
+  const { formState: { errors } } = useForm({ control }); // For displaying errors
   const candidateErrors = errors.positions?.[positionIndex]?.candidates;
 
+
   return (
-    <div className="space-y-3 pl-4 border-l-2 border-primary/20">
+    <div className="space-y-6 pl-4 border-l-2 border-primary/20">
       <h4 className="text-sm font-medium text-muted-foreground">Candidates for this position:</h4>
-      {fields.map((candidateItem, candidateIndex) => (
-        <div key={candidateItem.id} className="flex items-end gap-2 group/candidate">
-          <FormField
-            control={control}
-            name={`positions.${positionIndex}.candidates.${candidateIndex}.name`}
-            render={({ field }) => (
-              <FormItem className="flex-grow">
-                 {candidateIndex === 0 && <FormLabel className="text-xs">Candidate Name</FormLabel>}
-                <FormControl>
-                  <Input placeholder={`Candidate ${candidateIndex + 1} Name`} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+      {fields.map((candidateItem, candidateIndex) => {
+        const currentImageUrl = form.watch(`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`);
+        return (
+          <div key={candidateItem.id} className="flex flex-col sm:flex-row items-start gap-4 group/candidate p-3 border rounded-md bg-background/50">
+            <div className="flex-shrink-0 w-full sm:w-auto">
+              <FormLabel className="text-xs">Candidate Image</FormLabel>
+              <div className="mt-1 w-28 h-28 relative border rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                {uploadingStates[candidateItem.id] && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                  </div>
+                )}
+                {currentImageUrl ? (
+                  <Image
+                    src={currentImageUrl}
+                    alt={`Candidate ${candidateIndex + 1} image`}
+                    width={112}
+                    height={112}
+                    className="object-cover w-full h-full"
+                  />
+                ) : (
+                  <div className="text-muted-foreground flex flex-col items-center" data-ai-hint="person portrait">
+                    <ImageIcon className="h-10 w-10" />
+                    <span className="text-xs mt-1">No Image</span>
+                  </div>
+                )}
+              </div>
+               <Controller
+                control={control}
+                name={`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`} // Not strictly needed for control, but good for linking
+                render={({ field }) => (
+                  <Input
+                    id={`file-upload-${candidateItem.id}`}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileChange(e, candidateItem.id, candidateIndex)}
+                    className="mt-2 text-xs h-8"
+                    disabled={uploadingStates[candidateItem.id]}
+                  />
+                )}
+              />
+              <FormMessage>{form.formState.errors.positions?.[positionIndex]?.candidates?.[candidateIndex]?.imageUrl?.message}</FormMessage>
+            </div>
+
+            <div className="flex-grow space-y-3">
+                <FormField
+                control={control}
+                name={`positions.${positionIndex}.candidates.${candidateIndex}.name`}
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel className="text-xs">Candidate Name</FormLabel>
+                    <FormControl>
+                        <Input placeholder={`Candidate ${candidateIndex + 1} Name`} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                 {/* Placeholder for other candidate fields like bio, etc. */}
+            </div>
+
+            {fields.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => remove(candidateIndex)}
+                className="text-destructive hover:bg-destructive/10 h-8 w-8 opacity-50 group-hover/candidate:opacity-100 transition-opacity self-start sm:self-center mt-2 sm:mt-0"
+                disabled={uploadingStates[candidateItem.id]}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             )}
-          />
-          {/* Optional Image URL field - can be added later
-          <FormField
-            control={control}
-            name={`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`}
-            render={({ field }) => (
-              <FormItem className="flex-grow">
-                {candidateIndex === 0 && <FormLabel className="text-xs">Image URL (Optional)</FormLabel>}
-                <FormControl>
-                  <Input placeholder="https://example.com/image.png" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          */}
-          {fields.length > 1 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => remove(candidateIndex)}
-              className="text-destructive hover:bg-destructive/10 h-9 w-9 mb-1 opacity-50 group-hover/candidate:opacity-100 transition-opacity"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      ))}
+          </div>
+        );
+      })}
       <Button
         type="button"
         variant="link"
         size="sm"
-        onClick={() => append({ name: "" })}
+        onClick={() => append({ name: "", imageUrl: "" })}
         className="text-primary hover:text-primary/80 px-0"
       >
         <PlusCircle className="mr-1 h-4 w-4" /> Add Candidate
       </Button>
       {typeof candidateErrors === 'string' && <p className="text-sm font-medium text-destructive">{candidateErrors}</p>}
-      {typeof candidateErrors?.root === 'object' && <p className="text-sm font-medium text-destructive">{candidateErrors.root.message}</p>}
+      {candidateErrors?.root && typeof candidateErrors.root === 'object' && 'message' in candidateErrors.root && (
+        <p className="text-sm font-medium text-destructive">{String(candidateErrors.root.message)}</p>
+      )}
 
     </div>
   );
 }
-
