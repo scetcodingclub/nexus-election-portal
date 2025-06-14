@@ -5,22 +5,28 @@ import { getStorage } from "firebase/storage";
 import { getFirestore } from "firebase/firestore"; // Import Firestore
 
 // -----------------------------------------------------------------------------
-// IMPORTANT: REPLACE THE PLACEHOLDER VALUES BELOW WITH YOUR ACTUAL FIREBASE PROJECT CONFIGURATION.
+// IMPORTANT: YOU MUST REPLACE THE PLACEHOLDER VALUES BELOW 
+// WITH YOUR ACTUAL FIREBASE PROJECT CONFIGURATION.
 //
-// You can find these details in your Firebase project settings:
-// 1. Go to the Firebase Console (https://console.firebase.google.com/).
+// How to find your Firebase config:
+// 1. Go to the Firebase Console: https://console.firebase.google.com/
 // 2. Select your project.
-// 3. Click on the gear icon (Project settings) next to "Project Overview".
+// 3. Click the gear icon (Project settings) next to "Project Overview".
 // 4. In the "General" tab, scroll down to the "Your apps" section.
 // 5. If you haven't registered a web app, add one (click the </> icon).
-// 6. Find your web app and look for the "Firebase SDK snippet" section. Select "Config".
-// 7. Copy the corresponding values (apiKey, authDomain, etc.) from there into this file.
-//
-// Example: If your Firebase config shows:
+// 6. Find your web app and look for the "Firebase SDK snippet". Select "Config".
+// 7. Copy the values (apiKey, authDomain, projectId, etc.) from there.
+// 
+// Replace EACH "YOUR_..." string below with the corresponding value from your project.
+// For example, if your Firebase config shows:
 //   apiKey: "aiZaSyB...RandomChars...",
-// Then you would replace "YOUR_API_KEY" below with "aiZaSyB...RandomChars...".
+// Then you would change:
+//   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "YOUR_API_KEY",
+// To:
+//   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "aiZaSyB...RandomChars...",
+// (Or, if not using environment variables, directly to: apiKey: "aiZaSyB...RandomChars...")
 //
-// DO THIS FOR ALL CONFIG VALUES.
+// DO THIS FOR ALL CONFIG VALUES (apiKey, authDomain, projectId, etc.).
 // -----------------------------------------------------------------------------
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "YOUR_API_KEY", // <--- REPLACE THIS WITH YOUR ACTUAL API KEY
@@ -29,7 +35,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "YOUR_STORAGE_BUCKET", // <--- REPLACE THIS WITH YOUR ACTUAL STORAGE BUCKET
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "YOUR_MESSAGING_SENDER_ID", // <--- REPLACE THIS WITH YOUR ACTUAL MESSAGING SENDER ID
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "YOUR_APP_ID", // <--- REPLACE THIS WITH YOUR ACTUAL APP ID
-  // measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "YOUR_MEASUREMENT_ID" // Optional: uncomment and REPLACE if you need analytics
+  // measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "YOUR_MEASUREMENT_ID" // Optional: uncomment and REPLACE if you use Google Analytics
 };
 
 // Initialize Firebase
