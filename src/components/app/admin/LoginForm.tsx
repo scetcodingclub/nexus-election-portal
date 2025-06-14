@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,7 +44,7 @@ export default function LoginForm() {
     // Simulate API call
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    if (values.email === "admin@example.com" && values.password === "password") {
+    if (values.email === "Izzathalkaf@gmail.com" && values.password === "Nexus@gmail786") {
       toast({
         title: "Login Successful",
         description: "Redirecting to dashboard...",
