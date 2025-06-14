@@ -1,3 +1,4 @@
+
 import Link from 'next/link';
 import Image from 'next/image'; // Added import for Image component
 import { Button } from '@/components/ui/button';
@@ -10,13 +11,16 @@ export default function Header() {
     <header className="bg-card shadow-md sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex justify-between items-center">
         <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
-          {/* Use the new PNG logo */}
+          {/* 
+            Ensure 'nexus-logo.png' is placed directly in the 'public' folder 
+            for this path (src="/nexus-logo.png") to work correctly.
+          */}
           <Image 
             src="/nexus-logo.png" 
             alt="NEXUS: Next-Gen Coders United Society Logo" 
             width={150} 
             height={42} 
-            priority // Add priority if this is LCP
+            priority 
           />
         </Link>
         <nav className="space-x-2">
