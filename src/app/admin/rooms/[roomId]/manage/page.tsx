@@ -10,6 +10,7 @@ import { db } from "@/lib/firebaseClient";
 import { doc, getDoc, Timestamp } from "firebase/firestore";
 import type { ElectionRoom } from '@/lib/types';
 import ShareableLinkDisplay from '@/components/app/admin/ShareableLinkDisplay';
+import Image from 'next/image'; // Import next/image
 
 async function getElectionRoomById(roomId: string): Promise<ElectionRoom | null> {
   const roomRef = doc(db, "electionRooms", roomId);
@@ -22,7 +23,6 @@ async function getElectionRoomById(roomId: string): Promise<ElectionRoom | null>
   const data = docSnap.data();
   if (!data) return null;
 
-  // Convert Firestore Timestamps to ISO strings
   const createdAtRaw = data.createdAt;
   const updatedAtRaw = data.updatedAt;
 
@@ -38,15 +38,13 @@ async function getElectionRoomById(roomId: string): Promise<ElectionRoom | null>
     ? updatedAtRaw
     : undefined;
   
-  // Ensure positions and candidates have client-side IDs for RHF if they don't from Firestore
-  // This matches the logic in AdminDashboardPage for consistency.
   const positionsRaw = data.positions;
   const positions = Array.isArray(positionsRaw)
     ? positionsRaw.map((p: any) => ({
-        id: p?.id || `pos-${Math.random().toString(36).substr(2, 9)}`, // RHF key
+        id: p?.id || `pos-${Math.random().toString(36).substr(2, 9)}`,
         title: p?.title || "Untitled Position",
         candidates: Array.isArray(p?.candidates) ? p.candidates.map((c: any) => ({
-          id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`, // RHF key
+          id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
           name: c?.name || "Unnamed Candidate",
           imageUrl: c?.imageUrl || '',
           voteCount: c?.voteCount || 0,
@@ -77,6 +75,7 @@ export default async function ManageElectionRoomPage({ params }: { params: { roo
   }
 
   const voterLink = (process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:9002')) + `/vote/${room.id}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voterLink)}`;
 
 
   return (
@@ -113,11 +112,18 @@ export default async function ManageElectionRoomPage({ params }: { params: { roo
           <ShareableLinkDisplay voterLink={voterLink} />
           <Alert variant="default" className="border-primary/30">
              <QrCode className="h-4 w-4" />
-            <AlertTitle>QR Code</AlertTitle>
+            <AlertTitle>QR Code for Voters</AlertTitle>
             <AlertDescription>
-              Display a QR code for easy voter access. (A real QR code would replace the placeholder image below).
+              Voters can scan this QR code with their mobile devices to directly access the voting page.
               <div className="mt-2 p-4 bg-muted rounded flex items-center justify-center">
-                 <img src={`https://placehold.co/150x150.png?text=QR+Code`} alt="QR Code Placeholder" data-ai-hint="qr code" />
+                 <Image 
+                    src={qrCodeUrl} 
+                    alt={`QR Code for election: ${room.title}`} 
+                    width={150} 
+                    height={150} 
+                    data-ai-hint="qr code election" // data-ai-hint helps with image selection if needed
+                    className="rounded-md"
+                  />
               </div>
             </AlertDescription>
           </Alert>
