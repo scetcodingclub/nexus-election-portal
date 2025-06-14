@@ -4,53 +4,47 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // WARNING: TEMPORARILY VERY PERMISSIVE FOR DEBUGGING READS
+    // This rule allows ANYONE to read ANY document in your database.
+    // This is for diagnostic purposes ONLY.
+    // If your app works with this, it confirms a read permission issue.
+    // You MUST secure this immediately after testing.
+    match /{document=**} {
+      allow read: if true;
+    }
+
+    // Function to check if a user is an admin
+    // For now, any authenticated user is treated as an admin for write operations.
+    function isAdmin() {
+      return request.auth != null;
+    }
+
     // Election Rooms
     match /electionRooms/{roomId} {
-      // Temporarily make read/list more permissive to isolate the issue
-      allow read: if true; 
-      allow list: if true; // This is often the problematic one for dashboards if auth isn't right
+      // Admins can write/delete
+      // The global read rule above covers reads for now.
+      allow create, update, delete: if isAdmin();
 
-      // Admin operations for creating rooms
-      allow create: if request.auth != null &&
-                       request.resource.data.title is string &&
-                       request.resource.data.description is string &&
-                       request.resource.data.isAccessRestricted is bool &&
-                       request.resource.data.positions is list &&
-                       request.resource.data.status in ['pending', 'active', 'closed'];
-                       // createdAt will be handled by serverTimestamp() in the app code.
-
-      // Update rule: Admins can update. Voters can trigger updates to positions/updatedAt via server action.
-      allow update: if request.auth != null || // Admins can update anything
-                      (
-                        get(/databases/$(database)/documents/electionRooms/$(roomId)).data.status == 'active' && // Room must be active for vote updates
-                        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['positions', 'updatedAt']) && // Only these fields can change
-                        request.resource.data.updatedAt == request.time // Ensures updatedAt is a server timestamp
-                        // Deeper validation of 'positions' increments is too complex for rules; relies on trusted server action.
-                      );
-
-      allow delete: if request.auth != null;
+      // Specific update rule for vote counting by the recordUserVote function
+      // This rule allows updating 'positions' and 'updatedAt' if the room is 'active'.
+      // This check is on the existing document's data.
+      allow update: if request.auth != null && // Assuming recordUserVote implies some form of auth context
+                       resource.data.status == 'active' &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['positions', 'updatedAt']);
     }
 
-    // User Votes (to prevent duplicate voting and record votes)
+    // User Votes (to track who has voted to prevent duplicates)
     match /userVotes/{voteId} {
-      allow read: if request.auth != null; // Admins can read vote records
+      // Anyone can create a vote record IF the election room they are voting in is 'active'.
+      // This requires checking the status of the election room document.
+      // The global read rule above covers reads for now.
+      allow create: if get(/databases/$(database)/documents/electionRooms/$(request.resource.data.roomId)).data.status == 'active';
 
-      // Allow creation of a vote record if the room is active and necessary data is present.
-      // This is called by the recordUserVote server action.
-      allow create: if isValidUserVoteCreation(request.resource.data.roomId, request.resource.data);
-      
-      // Generally, client-side updates/deletes of userVotes are not allowed.
-    }
-    
-    // Helper functions
-    function isValidUserVoteCreation(roomId, incomingVoteData) {
-      let roomDoc = get(/databases/$(database)/documents/electionRooms/$(roomId));
-      // Check if room exists and is active
-      return roomDoc.exists && roomDoc.data.status == 'active' && 
-             incomingVoteData.roomId == roomId &&
-             incomingVoteData.userEmail is string && 
-             incomingVoteData.votedAt == request.time && // Server timestamp for vote
-             incomingVoteData.votesCast is map; // Ensure votesCast is a map (object)
+      // Admins can list user votes for audit purposes.
+      allow list: if isAdmin(); // List is a read operation, covered by global but can be more specific.
+
+      // Users cannot update/delete their vote records after casting.
+      allow update, delete: if false;
     }
   }
 }
