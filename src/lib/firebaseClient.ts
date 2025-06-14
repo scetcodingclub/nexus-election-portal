@@ -1,6 +1,7 @@
 
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage"; // Import Firebase Storage
 
 // TODO: Replace with your actual Firebase project configuration
 // These values should ideally be stored in environment variables
@@ -24,4 +25,5 @@ if (!getApps().length) {
 }
 
 export const auth = getAuth(app);
+export const storage = getStorage(app); // Initialize and export Firebase Storage
 export default app;
