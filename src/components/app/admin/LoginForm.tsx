@@ -58,7 +58,7 @@ export default function LoginForm() {
         case "auth/user-not-found":
         case "auth/wrong-password":
         case "auth/invalid-credential":
-          errorMessage = "Invalid email or password. Please check your credentials in the Firebase Console and ensure the user account exists and is enabled.";
+          errorMessage = "Invalid email or password. Please check your credentials and ensure the user account exists and is enabled in the Firebase Console.";
           break;
         case "auth/invalid-email":
           errorMessage = "The email address is not valid.";
@@ -143,3 +143,4 @@ export default function LoginForm() {
     </Form>
   );
 }
+
