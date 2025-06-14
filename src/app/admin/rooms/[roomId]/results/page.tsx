@@ -1,6 +1,6 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getMockElectionRoomById } from "@/lib/mock-data";
-import type { ElectionRoom, Position } from "@/lib/types";
+import type { ElectionRoom } from "@/lib/types";
 import { ArrowLeft, Download, BarChartHorizontalBig, PieChartIcon } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,49 @@ import { notFound } from 'next/navigation';
 import ResultsTable from "@/components/app/admin/ResultsTable";
 import ResultsCharts from "@/components/app/admin/ResultsCharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { db } from "@/lib/firebaseClient";
+import { doc, getDoc, Timestamp } from "firebase/firestore";
 
-export default function ElectionResultsPage({ params }: { params: { roomId: string } }) {
-  const room = getMockElectionRoomById(params.roomId);
+async function getElectionRoomById(roomId: string): Promise<ElectionRoom | null> {
+  const roomRef = doc(db, "electionRooms", roomId);
+  const docSnap = await getDoc(roomRef);
+
+  if (!docSnap.exists()) {
+    return null;
+  }
+
+  const data = docSnap.data();
+  // Convert Firestore Timestamps to ISO strings
+  const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+  const updatedAt = data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined;
+  
+  const positions = data.positions.map((p: any) => ({
+    id: p.id || `pos-${Math.random().toString(36).substr(2, 9)}`,
+    title: p.title,
+    candidates: p.candidates.map((c: any) => ({
+      id: c.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
+      name: c.name,
+      imageUrl: c.imageUrl || '',
+      voteCount: c.voteCount || 0, // Ensure voteCount is present
+    })),
+  }));
+
+  return {
+    id: docSnap.id,
+    title: data.title,
+    description: data.description,
+    isAccessRestricted: data.isAccessRestricted,
+    accessCode: data.accessCode,
+    positions: positions,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    status: data.status as ElectionRoom['status'],
+  };
+}
+
+
+export default async function ElectionResultsPage({ params }: { params: { roomId: string } }) {
+  const room = await getElectionRoomById(params.roomId);
 
   if (!room) {
     notFound();
