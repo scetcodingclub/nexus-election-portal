@@ -1,14 +1,14 @@
+
 import VoterEmailForm from '@/components/app/vote/VoterEmailForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getMockElectionRoomById } from '@/lib/mock-data';
-import { MailCheck } from 'lucide-react';
+import { getElectionRoomById } from '@/lib/electionRoomService'; // Updated import
+import { MailCheck, ArrowLeft } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
 
-export default function VoterEmailPromptPage({ params }: { params: { roomId: string } }) {
-  const room = getMockElectionRoomById(params.roomId);
+export default async function VoterEmailPromptPage({ params }: { params: { roomId: string } }) {
+  const room = await getElectionRoomById(params.roomId);
 
   if (!room) {
     notFound();
@@ -56,7 +56,6 @@ export default function VoterEmailPromptPage({ params }: { params: { roomId: str
     );
   }
 
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] py-12">
       <Card className="w-full max-w-lg shadow-xl">
@@ -68,7 +67,8 @@ export default function VoterEmailPromptPage({ params }: { params: { roomId: str
           <CardDescription>
             {room.description}
             <br/>
-            Please enter your email to proceed to the ballot. This helps ensure fair voting.
+            {room.isAccessRestricted ? "This room requires an access code. " : ""}
+            Please enter your email {room.isAccessRestricted ? "and the access code " : ""}to proceed to the ballot. This helps ensure fair voting.
           </CardDescription>
         </CardHeader>
         <CardContent>

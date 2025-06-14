@@ -1,6 +1,7 @@
+
 "use client";
 
-import type { ElectionRoom, Position, Candidate, Vote } from "@/lib/types";
+import type { ElectionRoom } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -11,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { CheckCircle, Loader2, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { checkUserHasVoted, recordUserVote } from "@/lib/electionRoomService";
 
 interface VotingBallotProps {
   room: ElectionRoom;
@@ -19,6 +21,7 @@ interface VotingBallotProps {
 export default function VotingBallot({ room }: VotingBallotProps) {
   const [selectedVotes, setSelectedVotes] = useState<Record<string, string>>({}); // positionId: candidateId
   const [isLoading, setIsLoading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(true);
   const [lockedPositions, setLockedPositions] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const router = useRouter();
@@ -27,22 +30,39 @@ export default function VotingBallot({ room }: VotingBallotProps) {
   useEffect(() => {
     const email = localStorage.getItem(`voterEmail-${room.id}`);
     if (!email) {
-      // Redirect if email not found, though ideally this is handled by middleware or page guard
-      toast({ variant: "destructive", title: "Access Error", description: "Voter email not found. Please start over." });
+      toast({ variant: "destructive", title: "Access Error", description: "Voter email not found. Please start over by entering your email again." });
       router.push(`/vote/${room.id}`);
-    } else {
-      setVoterEmail(email);
+      return;
     }
-    // Check if already voted (simple local storage check for scaffold)
-    const alreadyVoted = localStorage.getItem(`voted-${room.id}-${email}`);
-    if (alreadyVoted) {
-       router.push(`/vote/${room.id}/thank-you?status=already_voted`);
+    setVoterEmail(email);
+
+    async function verifyVoter() {
+      try {
+        const hasVoted = await checkUserHasVoted(room.id, email!);
+        if (hasVoted) {
+          router.replace(`/vote/${room.id}/thank-you?status=already_voted`);
+        } else if (room.status !== 'active') {
+          const message = room.status === 'closed' ? 'This election is closed.' : 'This election has not started yet.';
+          toast({ variant: "destructive", title: "Election Not Active", description: message });
+          router.replace(`/vote/${room.id}`);
+        }
+      } catch (error) {
+        console.error("Error checking voter status:", error);
+        toast({ variant: "destructive", title: "Verification Error", description: "Could not verify your voting status. Please try again." });
+        router.push(`/vote/${room.id}`);
+      } finally {
+        setIsVerifying(false);
+      }
+    }
+    
+    if (email) {
+        verifyVoter();
     }
 
-  }, [room.id, router, toast]);
+  }, [room.id, room.status, router, toast]);
 
   const handleVoteChange = (positionId: string, candidateId: string) => {
-    if (lockedPositions.has(positionId)) return; // Prevent changing vote if position is locked
+    if (lockedPositions.has(positionId)) return;
 
     setSelectedVotes((prev) => ({
       ...prev,
@@ -69,7 +89,6 @@ export default function VotingBallot({ room }: VotingBallotProps) {
       return;
     }
     
-    // Ensure all positions are locked before submitting
     const allLocked = room.positions.every(p => lockedPositions.has(p.id));
     if (!allLocked) {
         toast({
@@ -80,34 +99,45 @@ export default function VotingBallot({ room }: VotingBallotProps) {
         return;
     }
 
+    if (!voterEmail) {
+        toast({ variant: "destructive", title: "Error", description: "Voter identification missing. Please restart the voting process." });
+        router.push(`/vote/${room.id}`);
+        return;
+    }
 
     setIsLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log("Submitting votes:", selectedVotes, "for voter:", voterEmail);
+    try {
+      // Final check before recording vote
+      const hasVoted = await checkUserHasVoted(room.id, voterEmail);
+      if (hasVoted) {
+        router.push(`/vote/${room.id}/thank-you?status=already_voted`);
+        setIsLoading(false);
+        return;
+      }
 
-    // Mark as voted (simple local storage for scaffold)
-    if (voterEmail) {
-      localStorage.setItem(`voted-${room.id}-${voterEmail}`, "true");
+      await recordUserVote(room.id, voterEmail, selectedVotes);
+      
+      localStorage.removeItem(`voterEmail-${room.id}`); 
+
+      toast({
+        title: "Votes Submitted!",
+        description: "Thank you for participating in the election.",
+        className: "bg-primary text-primary-foreground"
+      });
+      router.push(`/vote/${room.id}/thank-you`);
+    } catch (error) {
+      console.error("Error submitting votes:", error);
+      toast({ variant: "destructive", title: "Submission Failed", description: "Could not submit your votes. Please try again." });
+    } finally {
+      setIsLoading(false);
     }
-    
-    localStorage.removeItem(`voterEmail-${room.id}`); // Clear email after voting
-
-    toast({
-      title: "Votes Submitted!",
-      description: "Thank you for participating in the election.",
-      className: "bg-primary text-primary-foreground"
-    });
-    router.push(`/vote/${room.id}/thank-you`);
-    setIsLoading(false);
   };
 
-  if (!voterEmail) {
-    // Could show a loading spinner or redirect message here
+  if (isVerifying || !voterEmail) {
     return (
-      <div className="flex items-center justify-center min-h-[300px]">
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4 text-lg">Verifying voter information...</p>
+        <p className="ml-4 text-lg mt-4">Verifying voter information and election status...</p>
       </div>
     );
   }
@@ -157,7 +187,7 @@ export default function VotingBallot({ room }: VotingBallotProps) {
                   )}
                 >
                   <Image
-                    src={candidate.imageUrl || `https://placehold.co/150x150.png?text=${candidate.name.charAt(0)}`}
+                    src={candidate.imageUrl || `https://placehold.co/100x100.png?text=${candidate.name.charAt(0)}`}
                     alt={candidate.name}
                     width={100}
                     height={100}
@@ -165,7 +195,7 @@ export default function VotingBallot({ room }: VotingBallotProps) {
                     data-ai-hint="person portrait"
                   />
                   <RadioGroupItem
-                    value={candidate.id}
+                    value={candidate.id} // Use candidate.id from Firestore data
                     id={`${position.id}-${candidate.id}`}
                     className="sr-only"
                     aria-label={candidate.name}
@@ -181,6 +211,9 @@ export default function VotingBallot({ room }: VotingBallotProps) {
                 </Label>
               ))}
             </RadioGroup>
+             {position.candidates.length === 0 && (
+                <p className="text-muted-foreground text-center py-4">No candidates available for this position.</p>
+            )}
           </CardContent>
         </Card>
       ))}
@@ -189,7 +222,7 @@ export default function VotingBallot({ room }: VotingBallotProps) {
         <Button
           size="lg"
           onClick={handleSubmitAllVotes}
-          disabled={isLoading || room.positions.some(p => !lockedPositions.has(p.id))}
+          disabled={isLoading || isVerifying || room.positions.some(p => !lockedPositions.has(p.id))}
           className="min-w-[200px] text-lg py-3 px-6 transition-transform duration-200 hover:scale-105 active:scale-95"
           aria-live="polite"
         >
@@ -202,7 +235,7 @@ export default function VotingBallot({ room }: VotingBallotProps) {
           )}
         </Button>
       </div>
-       {room.positions.some(p => !lockedPositions.has(p.id)) && (
+       {room.positions.some(p => !lockedPositions.has(p.id)) && !isVerifying && (
            <p className="text-center text-sm text-muted-foreground mt-4">
                Please select and lock your vote for all positions before submitting.
            </p>

@@ -1,9 +1,10 @@
+
 import VotingBallot from '@/components/app/vote/VotingBallot';
-import { getMockElectionRoomById } from '@/lib/mock-data';
+import { getElectionRoomById } from '@/lib/electionRoomService'; // Updated import
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
@@ -36,16 +37,17 @@ function BallotLoadingSkeleton() {
 }
 
 
-export default function BallotPage({ params }: { params: { roomId: string } }) {
-  const room = getMockElectionRoomById(params.roomId);
+export default async function BallotPage({ params }: { params: { roomId: string } }) {
+  const room = await getElectionRoomById(params.roomId);
 
   if (!room) {
     notFound();
   }
   
+  // This check also happens in VotingBallot client-side for immediate feedback after email entry,
+  // but good to have server-side check too.
   if (room.status === 'closed' || room.status === 'pending') {
-    // This should ideally be caught on the email page, but as a fallback:
-    const message = room.status === 'closed' ? 'This election is closed.' : 'This election has not started yet.';
+    const message = room.status === 'closed' ? 'This election is closed and no longer accepting votes.' : 'This election has not started yet. Please check back later.';
      return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] py-12 text-center">
         <Card className="w-full max-w-md shadow-xl p-6">

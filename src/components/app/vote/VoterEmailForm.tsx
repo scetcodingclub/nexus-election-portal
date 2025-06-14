@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,17 +18,18 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, ArrowRight } from "lucide-react";
+import { checkUserHasVoted } from "@/lib/electionRoomService"; // Import the check
 
 const emailFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  accessCode: z.string().optional(), // Optional field for access code
+  accessCode: z.string().optional(),
 });
 
 type EmailFormValues = z.infer<typeof emailFormSchema>;
 
 interface VoterEmailFormProps {
   roomId: string;
-  roomAccessCode?: string; // Actual access code if room is restricted
+  roomAccessCode?: string;
 }
 
 export default function VoterEmailForm({ roomId, roomAccessCode }: VoterEmailFormProps) {
@@ -45,8 +47,6 @@ export default function VoterEmailForm({ roomId, roomAccessCode }: VoterEmailFor
 
   async function onSubmit(values: EmailFormValues) {
     setIsLoading(true);
-    // Simulate API call for email validation / access code check
-    await new Promise(resolve => setTimeout(resolve, 1000));
 
     if (roomAccessCode && values.accessCode !== roomAccessCode) {
       toast({
@@ -58,17 +58,32 @@ export default function VoterEmailForm({ roomId, roomAccessCode }: VoterEmailFor
       return;
     }
 
-    // Store email in local storage conceptually, or pass via query param (less secure for email)
-    // For this scaffold, we'll just navigate.
-    // In a real app, this email might be used to generate a unique token or mark as voted.
-    localStorage.setItem(`voterEmail-${roomId}`, values.email);
+    try {
+      const hasVoted = await checkUserHasVoted(roomId, values.email);
+      if (hasVoted) {
+        router.push(`/vote/${roomId}/thank-you?status=already_voted`);
+        setIsLoading(false);
+        return;
+      }
 
-    toast({
-      title: "Email Verified",
-      description: "Proceeding to ballot...",
-    });
-    router.push(`/vote/${roomId}/ballot`);
-    setIsLoading(false);
+      // Store email in local storage to pass to the ballot page
+      localStorage.setItem(`voterEmail-${roomId}`, values.email);
+
+      toast({
+        title: "Email Verified",
+        description: "Proceeding to ballot...",
+      });
+      router.push(`/vote/${roomId}/ballot`);
+    } catch (error) {
+      console.error("Error checking voter status or proceeding:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not verify your status. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -106,7 +121,7 @@ export default function VoterEmailForm({ roomId, roomAccessCode }: VoterEmailFor
                     placeholder="Enter access code" 
                     {...field} 
                     className="text-base md:text-sm"
-                    aria-required="true"
+                    aria-required={!!roomAccessCode} // Only required if roomAccessCode is present
                   />
                 </FormControl>
                 <FormMessage />
