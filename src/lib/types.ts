@@ -19,6 +19,7 @@ export interface ElectionRoom {
   accessCode?: string; // For joining the room
   positions: Position[];
   createdAt: string;
+  updatedAt?: string; // Added for Firestore timestamp
   status: 'pending' | 'active' | 'closed';
 }
 
@@ -26,3 +27,4 @@ export interface Vote {
   positionId: string;
   candidateId: string;
 }
+

@@ -1,11 +1,13 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { mockElectionRooms } from "@/lib/mock-data";
 import type { ElectionRoom } from "@/lib/types";
 import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
+import { db } from "@/lib/firebaseClient";
+import { collection, getDocs, query, orderBy, Timestamp } from "firebase/firestore";
 
 function StatusBadge({ status }: { status: ElectionRoom['status'] }) {
   switch (status) {
@@ -20,8 +22,43 @@ function StatusBadge({ status }: { status: ElectionRoom['status'] }) {
   }
 }
 
-export default function AdminDashboardPage() {
-  const electionRooms = mockElectionRooms; // In a real app, this would be fetched
+async function getElectionRooms(): Promise<ElectionRoom[]> {
+  const electionRoomsCol = collection(db, "electionRooms");
+  const q = query(electionRoomsCol, orderBy("createdAt", "desc"));
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => {
+    const data = doc.data();
+    // Convert Firestore Timestamps to ISO strings
+    const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+    const updatedAt = data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined;
+
+    return {
+      id: doc.id,
+      title: data.title,
+      description: data.description,
+      isAccessRestricted: data.isAccessRestricted,
+      accessCode: data.accessCode,
+      positions: data.positions.map((p: any) => ({ // Add basic typing for position and candidate from Firestore data
+        id: p.id || `pos-${Math.random().toString(36).substr(2, 9)}`, // Ensure client-side key
+        title: p.title,
+        candidates: p.candidates.map((c: any) => ({
+            id: c.id || `cand-${Math.random().toString(36).substr(2, 9)}`, // Ensure client-side key
+            name: c.name,
+            imageUrl: c.imageUrl,
+            voteCount: c.voteCount || 0,
+        }))
+      })),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      status: data.status as ElectionRoom['status'],
+    };
+  });
+}
+
+
+export default async function AdminDashboardPage() {
+  const electionRooms = await getElectionRooms();
 
   return (
     <div className="space-y-8">
@@ -96,3 +133,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
