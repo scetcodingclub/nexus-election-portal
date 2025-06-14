@@ -29,29 +29,64 @@ async function getElectionRooms(): Promise<ElectionRoom[]> {
   
   return snapshot.docs.map(doc => {
     const data = doc.data();
-    // Convert Firestore Timestamps to ISO strings
-    const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString();
-    const updatedAt = data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined;
+    if (!data) {
+      // This case should ideally not happen if a document exists
+      return {
+        id: doc.id,
+        title: "Error: Missing Data",
+        description: "Document data is unexpectedly missing.",
+        isAccessRestricted: false,
+        accessCode: undefined,
+        positions: [],
+        createdAt: new Date().toISOString(),
+        status: 'pending' as ElectionRoom['status'],
+      };
+    }
+
+    const createdAtRaw = data.createdAt;
+    const updatedAtRaw = data.updatedAt;
+
+    const createdAt = createdAtRaw instanceof Timestamp
+      ? createdAtRaw.toDate().toISOString()
+      : typeof createdAtRaw === 'string'
+      ? createdAtRaw 
+      : new Date().toISOString(); 
+
+    const updatedAt = updatedAtRaw instanceof Timestamp
+      ? updatedAtRaw.toDate().toISOString()
+      : typeof updatedAtRaw === 'string'
+      ? updatedAtRaw
+      : undefined;
+
+    const positionsRaw = data.positions;
+    const positions = Array.isArray(positionsRaw)
+      ? positionsRaw.map((p: any) => {
+          const candidatesRaw = p?.candidates;
+          return {
+            id: p?.id || `pos-${Math.random().toString(36).substr(2, 9)}`,
+            title: p?.title || "Untitled Position",
+            candidates: Array.isArray(candidatesRaw)
+              ? candidatesRaw.map((c: any) => ({
+                  id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
+                  name: c?.name || "Unnamed Candidate",
+                  imageUrl: c?.imageUrl || '',
+                  voteCount: c?.voteCount || 0,
+                }))
+              : [],
+          };
+        })
+      : [];
 
     return {
       id: doc.id,
-      title: data.title,
-      description: data.description,
-      isAccessRestricted: data.isAccessRestricted,
-      accessCode: data.accessCode,
-      positions: data.positions.map((p: any) => ({ // Add basic typing for position and candidate from Firestore data
-        id: p.id || `pos-${Math.random().toString(36).substr(2, 9)}`, // Ensure client-side key
-        title: p.title,
-        candidates: p.candidates.map((c: any) => ({
-            id: c.id || `cand-${Math.random().toString(36).substr(2, 9)}`, // Ensure client-side key
-            name: c.name,
-            imageUrl: c.imageUrl,
-            voteCount: c.voteCount || 0,
-        }))
-      })),
+      title: data.title || "Untitled Election",
+      description: data.description || "No description provided.",
+      isAccessRestricted: data.isAccessRestricted === true, // Ensure boolean
+      accessCode: data.accessCode || undefined,
+      positions: positions,
       createdAt: createdAt,
       updatedAt: updatedAt,
-      status: data.status as ElectionRoom['status'],
+      status: (data.status as ElectionRoom['status']) || 'pending',
     };
   });
 }
@@ -133,4 +168,3 @@ export default async function AdminDashboardPage() {
     </div>
   );
 }
-
