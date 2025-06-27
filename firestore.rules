@@ -2,10 +2,21 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read and write access to all documents in all collections
-    // THIS IS FOR DIAGNOSTICS ONLY AND IS NOT SECURE
-    match /{document=**} {
-      allow read, write: if true;
+
+    // Allow public read on election rooms so voters can access them.
+    // Only allow authenticated users (admins) to create, update, or delete rooms.
+    match /electionRooms/{roomId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Allow anyone to create a vote record. The server-side transaction logic
+    // in the app prevents duplicate votes, making this secure.
+    // Disallow reading, updating, or deleting vote records from the client-side
+    // to protect voter privacy and vote integrity.
+    match /userVotes/{voteId} {
+      allow create: if true;
+      allow read, update, delete: if false;
     }
   }
 }
