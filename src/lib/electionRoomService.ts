@@ -114,3 +114,30 @@ export async function recordUserVote(roomId: string, userEmail: string, votes: R
     });
   });
 }
+
+
+export async function verifyRoomAccess(formData: FormData): Promise<{ success: boolean; message: string; roomId?: string; }> {
+  const roomId = formData.get('roomId') as string;
+  const accessCode = formData.get('accessCode') as string;
+
+  if (!roomId || roomId.trim() === '') {
+      return { success: false, message: "Please enter an Election Room ID." };
+  }
+
+  const room = await getElectionRoomById(roomId.trim());
+  
+  if (!room) {
+      return { success: false, message: "The Election Room ID you entered is invalid or the room does not exist." };
+  }
+
+  if (room.isAccessRestricted) {
+      if (!accessCode || accessCode.trim() === '') {
+          return { success: false, message: "This room is private and requires an access code." };
+      }
+      if (room.accessCode !== accessCode.trim()) {
+          return { success: false, message: "The access code provided is incorrect." };
+      }
+  }
+  
+  return { success: true, message: "Access granted.", roomId: room.id };
+}

@@ -22,17 +22,15 @@ import { checkUserHasVoted } from "@/lib/electionRoomService"; // Import the che
 
 const emailFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  accessCode: z.string().optional(),
 });
 
 type EmailFormValues = z.infer<typeof emailFormSchema>;
 
 interface VoterEmailFormProps {
   roomId: string;
-  roomAccessCode?: string;
 }
 
-export default function VoterEmailForm({ roomId, roomAccessCode }: VoterEmailFormProps) {
+export default function VoterEmailForm({ roomId }: VoterEmailFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -41,22 +39,11 @@ export default function VoterEmailForm({ roomId, roomAccessCode }: VoterEmailFor
     resolver: zodResolver(emailFormSchema),
     defaultValues: {
       email: "",
-      accessCode: "",
     },
   });
 
   async function onSubmit(values: EmailFormValues) {
     setIsLoading(true);
-
-    if (roomAccessCode && values.accessCode !== roomAccessCode) {
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: "The access code provided is incorrect.",
-      });
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const hasVoted = await checkUserHasVoted(roomId, values.email);
@@ -108,27 +95,6 @@ export default function VoterEmailForm({ roomId, roomAccessCode }: VoterEmailFor
             </FormItem>
           )}
         />
-        {roomAccessCode && (
-          <FormField
-            control={form.control}
-            name="accessCode"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Room Access Code</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="text" 
-                    placeholder="Enter access code" 
-                    {...field} 
-                    className="text-base md:text-sm"
-                    aria-required={!!roomAccessCode} // Only required if roomAccessCode is present
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? (
             <>

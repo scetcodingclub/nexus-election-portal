@@ -67,12 +67,11 @@ export default async function VoterEmailPromptPage({ params }: { params: { roomI
           <CardDescription>
             {room.description}
             <br/>
-            {room.isAccessRestricted ? "This room requires an access code. " : ""}
-            Please enter your email {room.isAccessRestricted ? "and the access code " : ""}to proceed to the ballot. This helps ensure fair voting.
+            Please enter your email to proceed to the ballot. This helps ensure fair voting.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <VoterEmailForm roomId={room.id} roomAccessCode={room.isAccessRestricted ? room.accessCode : undefined} />
+          <VoterEmailForm roomId={room.id} />
         </CardContent>
       </Card>
     </div>
