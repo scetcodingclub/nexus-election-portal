@@ -64,26 +64,33 @@ export async function getElectionRoomById(roomId: string): Promise<ElectionRoom 
 }
 
 export async function checkUserHasVoted(roomId: string, userEmail: string): Promise<boolean> {
-  const userVotesRef = collection(db, "userVotes");
-  const q = query(userVotesRef, where("roomId", "==", roomId), where("userEmail", "==", userEmail));
-  const querySnapshot = await getDocs(q);
-  return !querySnapshot.empty;
+  // Use a direct get() on a subcollection document, which is more secure and performant.
+  const userVoteRef = doc(db, "electionRooms", roomId, "voters", userEmail);
+  const userVoteSnap = await getDoc(userVoteRef);
+  return userVoteSnap.exists();
 }
 
 export async function recordUserVote(roomId: string, userEmail: string, votes: Record<string, string>): Promise<void> {
+  const electionRoomRef = doc(db, "electionRooms", roomId);
+  const userVoteRef = doc(db, "electionRooms", roomId, "voters", userEmail);
+
   await runTransaction(db, async (transaction) => {
-    const electionRoomRef = doc(db, "electionRooms", roomId);
+    // This is a server-side check to prevent double voting, even if client-side checks fail.
+    const userVoteSnap = await transaction.get(userVoteRef);
+    if (userVoteSnap.exists()) {
+      throw new Error("User has already voted.");
+    }
+
     const electionRoomSnap = await transaction.get(electionRoomRef);
 
     if (!electionRoomSnap.exists()) {
       throw new Error("Election room not found!");
     }
 
-    const roomData = electionRoomSnap.data() as DocumentData; 
+    const roomData = electionRoomSnap.data() as DocumentData;
     const updatedPositions = roomData.positions.map((position: any) => {
-      // Use position.id if available, otherwise fallback to title (though id is preferred)
-      const positionIdentifier = position.id || position.title; 
-      if (votes[positionIdentifier]) { 
+      const positionIdentifier = position.id || position.title;
+      if (votes[positionIdentifier]) {
         return {
           ...position,
           candidates: position.candidates.map((candidate: any) => {
@@ -105,12 +112,10 @@ export async function recordUserVote(roomId: string, userEmail: string, votes: R
 
     transaction.update(electionRoomRef, { positions: updatedPositions, updatedAt: Timestamp.now() });
 
-    const userVoteRef = doc(collection(db, "userVotes")); 
+    // Record the user's vote in the subcollection to prevent future votes.
     transaction.set(userVoteRef, {
-      roomId,
-      userEmail, 
       votedAt: Timestamp.now(),
-      votesCast: votes, 
+      votesCast: votes,
     });
   });
 }

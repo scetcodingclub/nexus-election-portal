@@ -10,20 +10,6 @@
           "order": "DESCENDING"
         }
       ]
-    },
-    {
-      "collectionGroup": "userVotes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "roomId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "userEmail",
-          "order": "ASCENDING"
-        }
-      ]
     }
   ],
   "fieldOverrides": []

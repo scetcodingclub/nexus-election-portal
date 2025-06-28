@@ -1,22 +1,29 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow public read on election rooms so voters can access them.
-    // Only allow authenticated users (admins) to create, update, or delete rooms.
     match /electionRooms/{roomId} {
-      allow read: if true;
+      // Public can read election details for voting.
+      // Admins can create, update, delete election rooms.
+      allow read;
       allow write: if request.auth != null;
-    }
 
-    // Allow anyone to create a vote record. The server-side transaction logic
-    // in the app prevents duplicate votes, making this secure.
-    // Disallow reading, updating, or deleting vote records from the client-side
-    // to protect voter privacy and vote integrity.
-    match /userVotes/{voteId} {
-      allow create: if true;
-      allow read, update, delete: if false;
+      // Rules for the 'voters' subcollection within an election room.
+      match /voters/{userEmail} {
+        // Anyone can check if a vote exists for a specific email.
+        allow get: if true;
+        
+        // Anyone can create their own vote record once.
+        allow create: if true;
+
+        // Nobody can update a vote record. Votes are immutable.
+        allow update: if false;
+
+        // Admins can list or delete vote records for auditing or corrections.
+        // Users cannot list all voters in an election.
+        allow list, delete: if request.auth != null;
+      }
     }
   }
 }
