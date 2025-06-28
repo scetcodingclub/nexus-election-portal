@@ -1,13 +1,20 @@
 
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebaseClient";
+import { getElectionRooms } from "@/lib/electionRoomService";
+import type { ElectionRoom } from "@/lib/types";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ElectionRoom } from "@/lib/types";
-import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
-import { db } from "@/lib/firebaseClient";
-import { collection, getDocs, query, orderBy, Timestamp } from "firebase/firestore";
 
 function StatusBadge({ status }: { status: ElectionRoom['status'] }) {
   switch (status) {
@@ -22,78 +29,91 @@ function StatusBadge({ status }: { status: ElectionRoom['status'] }) {
   }
 }
 
-async function getElectionRooms(): Promise<ElectionRoom[]> {
-  const electionRoomsCol = collection(db, "electionRooms");
-  const q = query(electionRoomsCol, orderBy("createdAt", "desc"));
-  const snapshot = await getDocs(q);
-  
-  return snapshot.docs.map(doc => {
-    const data = doc.data();
-    if (!data) {
-      // This case should ideally not happen if a document exists
-      return {
-        id: doc.id,
-        title: "Error: Missing Data",
-        description: "Document data is unexpectedly missing.",
-        isAccessRestricted: false,
-        accessCode: undefined,
-        positions: [],
-        createdAt: new Date().toISOString(),
-        status: 'pending' as ElectionRoom['status'],
-      };
-    }
-
-    const createdAtRaw = data.createdAt;
-    const updatedAtRaw = data.updatedAt;
-
-    const createdAt = createdAtRaw instanceof Timestamp
-      ? createdAtRaw.toDate().toISOString()
-      : typeof createdAtRaw === 'string'
-      ? createdAtRaw 
-      : new Date().toISOString(); 
-
-    const updatedAt = updatedAtRaw instanceof Timestamp
-      ? updatedAtRaw.toDate().toISOString()
-      : typeof updatedAtRaw === 'string'
-      ? updatedAtRaw
-      : undefined;
-
-    const positionsRaw = data.positions;
-    const positions = Array.isArray(positionsRaw)
-      ? positionsRaw.map((p: any) => {
-          const candidatesRaw = p?.candidates;
-          return {
-            id: p?.id || `pos-${Math.random().toString(36).substr(2, 9)}`,
-            title: p?.title || "Untitled Position",
-            candidates: Array.isArray(candidatesRaw)
-              ? candidatesRaw.map((c: any) => ({
-                  id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
-                  name: c?.name || "Unnamed Candidate",
-                  imageUrl: c?.imageUrl || '',
-                  voteCount: c?.voteCount || 0,
-                }))
-              : [],
-          };
-        })
-      : [];
-
-    return {
-      id: doc.id,
-      title: data.title || "Untitled Election",
-      description: data.description || "No description provided.",
-      isAccessRestricted: data.isAccessRestricted === true, // Ensure boolean
-      accessCode: data.accessCode || undefined,
-      positions: positions,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-      status: (data.status as ElectionRoom['status']) || 'pending',
-    };
-  });
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-10 w-56" />
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {[1, 2, 3].map((i) => (
+          <Card key={i}>
+            <CardHeader>
+              <div className="flex justify-between items-start">
+                <Skeleton className="h-6 w-3/4 mb-1" />
+                <Skeleton className="h-5 w-1/4" />
+              </div>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+            </CardHeader>
+            <CardContent className="flex-grow space-y-2 text-sm">
+              <Skeleton className="h-5 w-full" />
+              <Skeleton className="h-5 w-full" />
+            </CardContent>
+            <CardFooter className="grid grid-cols-2 gap-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-9 w-full col-span-2 mt-2" />
+            </CardFooter>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
 }
 
+export default function AdminDashboardPage() {
+  const [electionRooms, setElectionRooms] = useState<ElectionRoom[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-export default async function AdminDashboardPage() {
-  const electionRooms = await getElectionRooms();
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const rooms = await getElectionRooms();
+          setElectionRooms(rooms);
+        } catch (err: any) {
+          console.error("Failed to fetch election rooms:", err);
+          if (err.code === 'permission-denied') {
+            setError("You do not have permission to view the dashboard. Please contact support if you believe this is an error.");
+          } else {
+            setError("An unexpected error occurred while loading the dashboard. Please try again later.");
+          }
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        router.push('/admin/login');
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+  
+  if (error) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto mt-10 shadow-xl border-destructive">
+        <CardHeader className="text-center">
+          <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-4">
+            <AlertTriangle className="h-10 w-10" />
+          </div>
+          <CardTitle className="text-2xl">Error Loading Dashboard</CardTitle>
+          <CardDescription>{error}</CardDescription>
+        </CardHeader>
+        <CardContent className="text-center">
+          <Button onClick={() => router.push('/admin/login')}>
+            Go to Login Page
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className="space-y-8">

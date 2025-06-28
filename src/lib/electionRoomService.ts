@@ -2,8 +2,78 @@
 'use server';
 
 import { db } from "@/lib/firebaseClient";
-import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy } from "firebase/firestore";
 import type { ElectionRoom } from '@/lib/types';
+
+
+export async function getElectionRooms(): Promise<ElectionRoom[]> {
+  const electionRoomsCol = collection(db, "electionRooms");
+  const q = query(electionRoomsCol, orderBy("createdAt", "desc"));
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => {
+    const data = doc.data();
+    if (!data) {
+      // This case should ideally not happen if a document exists
+      return {
+        id: doc.id,
+        title: "Error: Missing Data",
+        description: "Document data is unexpectedly missing.",
+        isAccessRestricted: false,
+        accessCode: undefined,
+        positions: [],
+        createdAt: new Date().toISOString(),
+        status: 'pending' as ElectionRoom['status'],
+      };
+    }
+
+    const createdAtRaw = data.createdAt;
+    const updatedAtRaw = data.updatedAt;
+
+    const createdAt = createdAtRaw instanceof Timestamp
+      ? createdAtRaw.toDate().toISOString()
+      : typeof createdAtRaw === 'string'
+      ? createdAtRaw 
+      : new Date().toISOString(); 
+
+    const updatedAt = updatedAtRaw instanceof Timestamp
+      ? updatedAtRaw.toDate().toISOString()
+      : typeof updatedAtRaw === 'string'
+      ? updatedAtRaw
+      : undefined;
+
+    const positionsRaw = data.positions;
+    const positions = Array.isArray(positionsRaw)
+      ? positionsRaw.map((p: any) => {
+          const candidatesRaw = p?.candidates;
+          return {
+            id: p?.id || `pos-${Math.random().toString(36).substr(2, 9)}`,
+            title: p?.title || "Untitled Position",
+            candidates: Array.isArray(candidatesRaw)
+              ? candidatesRaw.map((c: any) => ({
+                  id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
+                  name: c?.name || "Unnamed Candidate",
+                  imageUrl: c?.imageUrl || '',
+                  voteCount: c?.voteCount || 0,
+                }))
+              : [],
+          };
+        })
+      : [];
+
+    return {
+      id: doc.id,
+      title: data.title || "Untitled Election",
+      description: data.description || "No description provided.",
+      isAccessRestricted: data.isAccessRestricted === true, // Ensure boolean
+      accessCode: data.accessCode || undefined,
+      positions: positions,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      status: (data.status as ElectionRoom['status']) || 'pending',
+    };
+  });
+}
 
 export async function getElectionRoomById(roomId: string): Promise<ElectionRoom | null> {
   const roomRef = doc(db, "electionRooms", roomId);
