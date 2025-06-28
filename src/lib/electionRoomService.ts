@@ -70,6 +70,31 @@ export async function checkUserHasVoted(roomId: string, userEmail: string): Prom
   return userVoteSnap.exists();
 }
 
+export async function getVotersForRoom(roomId: string): Promise<{email: string; votedAt: string}[]> {
+  const votersColRef = collection(db, "electionRooms", roomId, "voters");
+  const votersSnap = await getDocs(votersColRef);
+
+  if (votersSnap.empty) {
+    return [];
+  }
+
+  const voters = votersSnap.docs.map(doc => {
+    const data = doc.data();
+    const votedAtRaw = data.votedAt;
+    const votedAt = votedAtRaw instanceof Timestamp
+      ? votedAtRaw.toDate().toISOString()
+      : new Date().toISOString();
+
+    return {
+      email: doc.id,
+      votedAt,
+    };
+  });
+
+  // Sort by date, most recent first
+  return voters.sort((a, b) => new Date(b.votedAt).getTime() - new Date(a.votedAt).getTime());
+}
+
 export async function recordUserVote(roomId: string, userEmail: string, votes: Record<string, string>): Promise<void> {
   const electionRoomRef = doc(db, "electionRooms", roomId);
   const userVoteRef = doc(db, "electionRooms", roomId, "voters", userEmail);

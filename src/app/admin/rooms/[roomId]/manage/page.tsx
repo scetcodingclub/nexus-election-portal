@@ -1,7 +1,7 @@
 
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, QrCode, BarChart3, Fingerprint } from 'lucide-react';
+import { ArrowLeft, QrCode, BarChart3, Fingerprint, Users } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -101,6 +101,22 @@ export default async function ManageElectionRoomPage({ params }: { params: { roo
         </CardHeader>
         <CardContent>
           <ElectionRoomForm initialData={room} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-headline">Voter Participation</CardTitle>
+          <CardDescription>
+            View the list of emails for everyone who has cast a ballot in this election.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild>
+            <Link href={`/admin/rooms/${room.id}/voters`}>
+              <Users className="mr-2 h-4 w-4" /> View Voter List
+            </Link>
+          </Button>
         </CardContent>
       </Card>
 
