@@ -58,6 +58,7 @@ export default function VoterAccessPage() {
                 className="mt-1 text-base md:text-sm"
                 required
                 aria-label="Election Room ID"
+                suppressHydrationWarning={true}
               />
             </div>
              <div>
@@ -69,9 +70,10 @@ export default function VoterAccessPage() {
                 placeholder="Enter code for a private room"
                 className="mt-1 text-base md:text-sm"
                 aria-label="Access Code"
+                suppressHydrationWarning={true}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading} suppressHydrationWarning={true}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...

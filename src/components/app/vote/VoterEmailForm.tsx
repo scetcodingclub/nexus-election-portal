@@ -89,13 +89,14 @@ export default function VoterEmailForm({ roomId }: VoterEmailFormProps) {
                   {...field} 
                   className="text-base md:text-sm"
                   aria-required="true"
+                  suppressHydrationWarning={true}
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        <Button type="submit" className="w-full" disabled={isLoading} suppressHydrationWarning={true}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
