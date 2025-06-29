@@ -118,7 +118,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold font-headline">Admin Dashboard</h1>
+        <h1 className="text-3xl font-bold font-headline">Election Panel</h1>
         <Button asChild>
           <Link href="/admin/rooms/create">
             <PlusCircle className="mr-2 h-5 w-5" /> Create New Election Room

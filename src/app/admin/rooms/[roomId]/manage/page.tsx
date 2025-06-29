@@ -84,7 +84,7 @@ export default async function ManageElectionRoomPage({ params }: { params: { roo
       <div className="flex justify-between items-center">
         <Button variant="outline" asChild>
           <Link href="/admin/dashboard">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Panel
           </Link>
         </Button>
         <Button variant="default" asChild>

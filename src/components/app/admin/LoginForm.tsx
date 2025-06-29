@@ -58,7 +58,7 @@ export default function LoginForm() {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful",
-        description: "Redirecting to dashboard...",
+        description: "Redirecting to panel...",
       });
       router.push("/admin/dashboard");
     } catch (error) {

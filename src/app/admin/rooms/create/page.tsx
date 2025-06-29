@@ -9,7 +9,7 @@ export default function CreateElectionRoomPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <Button variant="outline" asChild className="mb-4">
         <Link href="/admin/dashboard">
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Panel
         </Link>
       </Button>
       <Card className="shadow-xl">
