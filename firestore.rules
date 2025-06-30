@@ -3,40 +3,33 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
     match /electionRooms/{roomId} {
-      // Allow public read of a single room's data for voting.
-      allow get: if true;
-      // Allow authenticated users (admins) to list all rooms for their panel.
-      allow list: if request.auth != null;
+      // Public can read room details, but only admins can change them.
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
 
-      // Allow authenticated users to create and delete rooms.
-      allow create, delete: if request.auth != null;
-      
-      // Allow updates under two conditions:
-      // 1. The user is authenticated (an admin making general changes).
-      // 2. An unauthenticated user is submitting a vote. In this case, we ONLY
-      //    allow the 'positions' (for vote counts) and 'updatedAt' fields to be changed.
-      //    This is a necessary security constraint for the client-side voting logic.
-      allow update: if request.auth != null || 
-                      (request.auth == null && 
-                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['positions', 'updatedAt']));
-      
+      // Anyone can create a record of their vote to prevent double-voting.
+      // This is the key to preventing a user from voting multiple times.
       match /voters/{voterId} {
-        // Allow anyone to check if they've voted using get(). This is required for the app flow.
-        allow get: if true;
-        
-        // Allow authenticated users (admins) to see the full list of voters.
-        allow list: if request.auth != null;
-
-        // Anyone can create a vote record to submit their ballot.
-        allow create: if true;
-
-        // Disallow updates and deletes on vote records to prevent tampering.
+        allow read, create: if true;
+        // Only admins can modify/delete these records.
+        allow update, delete: if request.auth != null;
+      }
+      
+      // Anyone can cast a vote by creating a new vote document.
+      // These should be immutable once created to ensure vote integrity.
+      match /votes/{voteId} {
+        // Only admins can see individual votes to protect voter privacy.
+        allow read: if request.auth != null;
+        // Anyone can create a vote document.
+        allow create: if true; 
+        // No one can change or delete a vote once it has been cast.
         allow update, delete: if false;
       }
     }
 
-    // By default, deny access to all other collections.
+    // By default, deny access to all other collections and documents.
     match /{document=**} {
       allow read, write: if false;
     }

@@ -31,13 +31,13 @@ import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "fir
 const candidateSchema = z.object({
   id: z.string().optional(), 
   name: z.string().min(1, "Candidate name is required."),
-  voteCount: z.number().optional(),
+  voteCount: z.number().optional(), // Kept for type consistency, but not saved.
 });
 
 const positionSchema = z.object({
   id: z.string().optional(), 
   title: z.string().min(1, "Position title is required."),
-  candidates: z.array(candidateSchema).min(1, "At least one candidate is required for a position."),
+  candidates: z.array(candidateSchema).min(1).max(1, "Only one candidate is allowed per position in a review room."),
 });
 
 const reviewRoomFormSchema = z.object({
@@ -128,7 +128,7 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
         candidates: p.candidates.map(c => ({
             id: c.id || generateClientSideId('cand'),
             name: c.name,
-            voteCount: c.voteCount || 0 
+            // DO NOT SAVE VOTE COUNT. It is now aggregated from the 'votes' subcollection.
         })),
     }));
 
@@ -375,7 +375,7 @@ interface SimpleCandidateFieldsProps {
 }
 
 function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidateFieldsProps) {
-  const { fields } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control,
     name: `positions.${positionIndex}.candidates`,
   });
@@ -385,8 +385,8 @@ function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidate
 
   return (
     <div className="space-y-6 pl-4 border-l-2 border-primary/20">
-      <h4 className="text-sm font-medium text-muted-foreground">Candidate for this position:</h4>
-      {fields.map((candidateItem, candidateIndex) => {
+      <h4 className="text-sm font-medium text-muted-foreground">Person to be Reviewed:</h4>
+      {fields.slice(0, 1).map((candidateItem, candidateIndex) => { // Only show one candidate
         return (
           <div key={candidateItem.id} className="flex flex-row items-center gap-4">
             <div className="flex-grow">
@@ -407,6 +407,9 @@ function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidate
           </div>
         );
       })}
+      
+      {/* Do not render "Add Candidate" button */}
+      
       {typeof candidateErrors === 'string' && <p className="text-sm font-medium text-destructive">{candidateErrors}</p>}
       {candidateErrors?.root && typeof candidateErrors.root === 'object' && 'message' in candidateErrors.root && (
         <p className="text-sm font-medium text-destructive">{String(candidateErrors.root.message)}</p>

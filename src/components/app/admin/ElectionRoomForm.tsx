@@ -36,7 +36,7 @@ const candidateSchema = z.object({
   id: z.string().optional(), 
   name: z.string().min(1, "Candidate name is required."),
   imageUrl: z.string().url("Image URL must be a valid URL.").optional().or(z.literal('')),
-  voteCount: z.number().optional(), // Keep voteCount
+  voteCount: z.number().optional(), // Keep voteCount for displaying results, but don't save it
 });
 
 const positionSchema = z.object({
@@ -141,7 +141,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             id: c.id || generateClientSideId('cand'), // Ensure ID for Firestore
             name: c.name,
             imageUrl: c.imageUrl,
-            voteCount: c.voteCount || 0 
+            // DO NOT SAVE VOTE COUNT. It is now aggregated from the 'votes' subcollection.
         })),
     }));
 

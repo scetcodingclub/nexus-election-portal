@@ -1,6 +1,6 @@
 
 import { db } from "@/lib/firebaseClient";
-import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc } from "firebase/firestore";
 import type { ElectionRoom } from '@/lib/types';
 
 
@@ -77,11 +77,22 @@ export async function getElectionRooms(): Promise<ElectionRoom[]> {
 
 export async function getElectionRoomById(roomId: string): Promise<ElectionRoom | null> {
   const roomRef = doc(db, "electionRooms", roomId);
-  const docSnap = await getDoc(roomRef);
+  // Also fetch all the vote documents for this room to aggregate results
+  const [docSnap, votesSnap] = await Promise.all([
+    getDoc(roomRef),
+    getDocs(collection(db, "electionRooms", roomId, "votes"))
+  ]);
 
   if (!docSnap.exists()) {
     return null;
   }
+  
+  const voteCounts = new Map<string, number>();
+  votesSnap.forEach(voteDoc => {
+    const voteData = voteDoc.data();
+    const candidateId = voteData.candidateId;
+    voteCounts.set(candidateId, (voteCounts.get(candidateId) || 0) + 1);
+  });
 
   const data = docSnap.data();
   if (!data) return null; 
@@ -113,7 +124,8 @@ export async function getElectionRoomById(roomId: string): Promise<ElectionRoom 
                 id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
                 name: c?.name || "Unnamed Candidate",
                 imageUrl: c?.imageUrl || '',
-                voteCount: c?.voteCount || 0,
+                // Overwrite voteCount with aggregated data. It's no longer stored on the room doc.
+                voteCount: voteCounts.get(c.id) || 0,
               }))
             : [],
         };
@@ -167,51 +179,33 @@ export async function getVotersForRoom(roomId: string): Promise<{email: string; 
 }
 
 export async function recordUserVote(roomId: string, userEmail: string, votes: Record<string, string>): Promise<void> {
-  const electionRoomRef = doc(db, "electionRooms", roomId);
   const userVoteRef = doc(db, "electionRooms", roomId, "voters", userEmail);
+  const votesColRef = collection(db, "electionRooms", roomId, "votes");
 
   await runTransaction(db, async (transaction) => {
-    // This is a server-side check to prevent double voting, even if client-side checks fail.
+    // 1. Check if user has already voted. This is the main guard against double voting.
     const userVoteSnap = await transaction.get(userVoteRef);
     if (userVoteSnap.exists()) {
       throw new Error("User has already voted.");
     }
-
-    const electionRoomSnap = await transaction.get(electionRoomRef);
-
-    if (!electionRoomSnap.exists()) {
-      throw new Error("Voting room not found!");
-    }
-
-    const roomData = electionRoomSnap.data() as DocumentData;
-    const updatedPositions = roomData.positions.map((position: any) => {
-      const positionIdentifier = position.id || position.title;
-      if (votes[positionIdentifier]) {
-        return {
-          ...position,
-          candidates: position.candidates.map((candidate: any) => {
-            const candidateIdentifier = candidate.id || candidate.name;
-            const selectedCandidateIdentifier = votes[positionIdentifier];
-
-            if (candidateIdentifier === selectedCandidateIdentifier) {
-              return {
-                ...candidate,
-                voteCount: (candidate.voteCount || 0) + 1,
-              };
-            }
-            return candidate;
-          }),
-        };
+    
+    // 2. Add individual vote documents to the 'votes' subcollection
+    for (const positionId in votes) {
+      if (Object.prototype.hasOwnProperty.call(votes, positionId)) {
+        const candidateId = votes[positionId];
+        const newVoteRef = doc(votesColRef); // Create a reference for a new document with an auto-generated ID
+        transaction.set(newVoteRef, {
+          positionId,
+          candidateId,
+          createdAt: Timestamp.now(),
+        });
       }
-      return position;
-    });
-
-    transaction.update(electionRoomRef, { positions: updatedPositions, updatedAt: Timestamp.now() });
-
-    // Record the user's vote in the subcollection to prevent future votes.
+    }
+    
+    // 3. Create a document for the voter to prevent them from voting again.
     transaction.set(userVoteRef, {
       votedAt: Timestamp.now(),
-      votesCast: votes,
+      votesCast: votes, // Store what they voted for, just in case.
     });
   });
 }
