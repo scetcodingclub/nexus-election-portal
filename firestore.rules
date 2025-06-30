@@ -4,34 +4,47 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    match /electionRooms/{roomId} {
-      // Public can read room details, but only admins can change them.
-      allow read: if true;
-      allow create, update, delete: if request.auth != null;
-
-      // Anyone can create a record of their vote to prevent double-voting.
-      // This is the key to preventing a user from voting multiple times.
-      match /voters/{voterId} {
-        allow read, create: if true;
-        // Only admins can modify/delete these records.
-        allow update, delete: if request.auth != null;
-      }
-      
-      // Anyone can cast a vote by creating a new vote document.
-      // These should be immutable once created to ensure vote integrity.
-      match /votes/{voteId} {
-        // Only admins can see individual votes to protect voter privacy.
-        allow read: if request.auth != null;
-        // Anyone can create a vote document.
-        allow create: if true; 
-        // No one can change or delete a vote once it has been cast.
-        allow update, delete: if false;
-      }
+    // Helper function to check if the user is a logged-in admin
+    function isAdmin() {
+      return request.auth.uid != null;
     }
 
-    // By default, deny access to all other collections and documents.
-    match /{document=**} {
-      allow read, write: if false;
+    // Rules for the main electionRooms collection
+    match /electionRooms/{roomId} {
+      // Anyone can read the public-facing details of an election room
+      allow get: if true;
+      // Admins can list all rooms on their dashboard
+      allow list: if isAdmin();
+      // Only admins can create, update, or delete rooms
+      allow create, update, delete: if isAdmin();
+
+      // Rules for the 'voters' subcollection (tracks who has voted)
+      match /voters/{voterEmail} {
+        // Admins can read the full list of voters' emails.
+        allow list: if isAdmin();
+        
+        // Anyone can check if a SPECIFIC email has voted (for the "already voted" check).
+        // Admins can also get a single voter document.
+        allow get: if true; 
+
+        // Anyone can create their voter record once. The app's logic prevents overwrites.
+        allow create: if true;
+
+        // Only admins can modify or delete voter records (not currently used).
+        allow update, delete: if isAdmin();
+      }
+
+      // Rules for the 'votes' subcollection (stores individual anonymous votes)
+      match /votes/{voteId} {
+        // Only admins can list votes for aggregating results.
+        allow list: if isAdmin();
+        // No one can read a single, specific vote document to protect anonymity.
+        allow get: if false;
+        // Anyone can create a new vote (cast a ballot).
+        allow create: if true;
+        // Votes are immutable and cannot be changed or deleted.
+        allow update, delete: if false;
+      }
     }
   }
 }
