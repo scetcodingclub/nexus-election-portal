@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
@@ -20,7 +21,7 @@ export default function Home() {
           <CardHeader>
             <CardTitle className="flex items-center text-2xl font-headline">
               <ShieldCheckIcon className="mr-2 h-8 w-8 text-primary" />
-              Admin Panel
+              Election Panel
             </CardTitle>
             <CardDescription>
               Manage election rooms, configure positions, add candidates, and view results.
@@ -30,9 +31,9 @@ export default function Home() {
             <p className="mb-4">
               Access the administrative dashboard to oversee all aspects of the election process.
             </p>
-            <Button asChild className="w-full md:w-auto" variant="outline">
+            <Button asChild className="w-full md:w-auto" variant="default">
               <Link href="/admin/login">
-                Go to Admin Login <ArrowRight className="ml-2 h-4 w-4" />
+                Go to Panel Login <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </CardContent>
