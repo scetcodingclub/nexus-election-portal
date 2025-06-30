@@ -1,59 +1,91 @@
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter, notFound } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebaseClient";
+import { getElectionRoomById } from "@/lib/electionRoomService";
 import type { ElectionRoom } from "@/lib/types";
-import { ArrowLeft, Download, BarChartHorizontalBig, PieChartIcon } from "lucide-react";
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Download, BarChartHorizontalBig, PieChartIcon, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { notFound } from 'next/navigation';
 import ResultsTable from "@/components/app/admin/ResultsTable";
 import ResultsCharts from "@/components/app/admin/ResultsCharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { db } from "@/lib/firebaseClient";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
+import ResultsLoading from "./loading";
 
-async function getElectionRoomById(roomId: string): Promise<ElectionRoom | null> {
-  const roomRef = doc(db, "electionRooms", roomId);
-  const docSnap = await getDoc(roomRef);
 
-  if (!docSnap.exists()) {
-    return null;
+export default function ElectionResultsPage() {
+  const params = useParams();
+  const router = useRouter();
+  const roomId = params.roomId as string;
+  
+  const [room, setRoom] = useState<ElectionRoom | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!roomId) {
+        setError("Room ID is missing from the URL.");
+        setLoading(false);
+        return;
+    };
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const roomData = await getElectionRoomById(roomId);
+          if (!roomData) {
+            notFound();
+            return;
+          }
+          setRoom(roomData);
+        } catch (err: any) {
+          console.error("Failed to fetch results:", err);
+           if (err.code === 'permission-denied') {
+             setError("You do not have permission to view this page. Please ensure you are logged in as an admin.");
+          } else {
+            setError("An unexpected error occurred while loading the results. Please try again later.");
+          }
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        router.push('/admin/login');
+      }
+    });
+    return () => unsubscribe();
+  }, [roomId, router]);
+
+  if (loading) {
+    return <ResultsLoading />;
   }
 
-  const data = docSnap.data();
-  // Convert Firestore Timestamps to ISO strings
-  const createdAt = data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : new Date().toISOString();
-  const updatedAt = data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toISOString() : undefined;
-  
-  const positions = data.positions.map((p: any) => ({
-    id: p.id || `pos-${Math.random().toString(36).substr(2, 9)}`,
-    title: p.title,
-    candidates: p.candidates.map((c: any) => ({
-      id: c.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
-      name: c.name,
-      imageUrl: c.imageUrl || '',
-      voteCount: c.voteCount || 0, // Ensure voteCount is present
-    })),
-  }));
-
-  return {
-    id: docSnap.id,
-    title: data.title,
-    description: data.description,
-    isAccessRestricted: data.isAccessRestricted,
-    accessCode: data.accessCode,
-    positions: positions,
-    createdAt: createdAt,
-    updatedAt: updatedAt,
-    status: data.status as ElectionRoom['status'],
-  };
-}
-
-
-export default async function ElectionResultsPage({ params }: { params: { roomId: string } }) {
-  const room = await getElectionRoomById(params.roomId);
+  if (error) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto mt-10 shadow-xl border-destructive">
+        <CardHeader className="text-center">
+          <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-4">
+            <AlertTriangle className="h-10 w-10" />
+          </div>
+          <CardTitle className="text-2xl">Error Loading Results</CardTitle>
+          <CardDescription>{error}</CardDescription>
+        </CardHeader>
+        <CardContent className="text-center">
+          <Button asChild>
+              <Link href={`/admin/rooms/${roomId}/manage`}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage
+              </Link>
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (!room) {
-    notFound();
+    return notFound();
   }
 
   return (
@@ -68,7 +100,7 @@ export default async function ElectionResultsPage({ params }: { params: { roomId
             <h1 className="text-3xl font-bold font-headline mt-2">Results: {room.title}</h1>
             <p className="text-muted-foreground">{room.description}</p>
         </div>
-        <Button disabled className="w-full sm:w-auto"> {/* PDF Export is complex */}
+        <Button disabled className="w-full sm:w-auto">
           <Download className="mr-2 h-4 w-4" /> Export as PDF (Coming Soon)
         </Button>
       </div>

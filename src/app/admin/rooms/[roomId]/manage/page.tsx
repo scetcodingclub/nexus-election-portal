@@ -1,83 +1,95 @@
 
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter, notFound } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebaseClient";
+import { getElectionRoomById } from "@/lib/electionRoomService";
+import type { ElectionRoom } from "@/lib/types";
+
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, QrCode, BarChart3, Fingerprint, Users } from 'lucide-react';
+import { ArrowLeft, QrCode, BarChart3, Fingerprint, Users, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { notFound } from 'next/navigation';
-import { db } from "@/lib/firebaseClient";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
-import type { ElectionRoom } from '@/lib/types';
 import ShareableLinkDisplay from '@/components/app/admin/ShareableLinkDisplay';
 import Image from 'next/image'; 
+import Loading from './loading';
 
-async function getElectionRoomById(roomId: string): Promise<ElectionRoom | null> {
-  const roomRef = doc(db, "electionRooms", roomId);
-  const docSnap = await getDoc(roomRef);
 
-  if (!docSnap.exists()) {
-    return null;
+export default function ManageElectionRoomPage() {
+  const params = useParams();
+  const router = useRouter();
+  const roomId = params.roomId as string;
+
+  const [room, setRoom] = useState<ElectionRoom | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!roomId) {
+        setError("Room ID is missing from the URL.");
+        setLoading(false);
+        return;
+    };
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const roomData = await getElectionRoomById(roomId);
+          if (!roomData) {
+            notFound();
+            return;
+          }
+          setRoom(roomData);
+        } catch (err: any) {
+          console.error("Failed to fetch voting room:", err);
+          if (err.code === 'permission-denied') {
+             setError("You do not have permission to view this page. Please ensure you are logged in as an admin.");
+          } else {
+            setError("An unexpected error occurred while loading the page. Please try again later.");
+          }
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        router.push('/admin/login');
+      }
+    });
+    return () => unsubscribe();
+  }, [roomId, router]);
+
+  if (loading) {
+    return <Loading />;
+  }
+  
+  if (error) {
+    return (
+      <Card className="w-full max-w-2xl mx-auto mt-10 shadow-xl border-destructive">
+        <CardHeader className="text-center">
+          <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-4">
+            <AlertTriangle className="h-10 w-10" />
+          </div>
+          <CardTitle className="text-2xl">Error Loading Page</CardTitle>
+          <CardDescription>{error}</CardDescription>
+        </CardHeader>
+        <CardContent className="text-center">
+          <Button onClick={() => router.push('/admin/login')}>
+            Go to Login Page
+          </Button>
+        </CardContent>
+      </Card>
+    )
   }
 
-  const data = docSnap.data();
-  if (!data) return null;
-
-  const createdAtRaw = data.createdAt;
-  const updatedAtRaw = data.updatedAt;
-
-  const createdAt = createdAtRaw instanceof Timestamp
-    ? createdAtRaw.toDate().toISOString()
-    : typeof createdAtRaw === 'string'
-    ? createdAtRaw 
-    : new Date().toISOString(); 
-
-  const updatedAt = updatedAtRaw instanceof Timestamp
-    ? updatedAtRaw.toDate().toISOString()
-    : typeof updatedAtRaw === 'string'
-    ? updatedAtRaw
-    : undefined;
-  
-  const positionsRaw = data.positions;
-  const positions = Array.isArray(positionsRaw)
-    ? positionsRaw.map((p: any) => ({
-        id: p?.id || `pos-${Math.random().toString(36).substr(2, 9)}`,
-        title: p?.title || "Untitled Position",
-        candidates: Array.isArray(p?.candidates) ? p.candidates.map((c: any) => ({
-          id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
-          name: c?.name || "Unnamed Candidate",
-          imageUrl: c?.imageUrl || '',
-          voteCount: c?.voteCount || 0,
-        })) : [],
-      }))
-    : [];
-
-
-  return {
-    id: docSnap.id,
-    title: data.title || "Untitled Election Room",
-    description: data.description || "No description.",
-    isAccessRestricted: data.isAccessRestricted === true,
-    accessCode: data.accessCode || undefined,
-    positions: positions,
-    createdAt: createdAt,
-    updatedAt: updatedAt,
-    status: (data.status as ElectionRoom['status']) || 'pending',
-  };
-}
-
-
-export default async function ManageElectionRoomPage({ params }: { params: { roomId: string } }) {
-  const room = await getElectionRoomById(params.roomId);
-
   if (!room) {
-    notFound(); 
+    return notFound(); 
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:9002');
   const voterLink = `${baseUrl}/vote/${room.id}`;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voterLink)}`;
-
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
