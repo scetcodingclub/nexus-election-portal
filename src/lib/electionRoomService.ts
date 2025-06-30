@@ -1,6 +1,4 @@
 
-'use server';
-
 import { db } from "@/lib/firebaseClient";
 import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy } from "firebase/firestore";
 import type { ElectionRoom } from '@/lib/types';
