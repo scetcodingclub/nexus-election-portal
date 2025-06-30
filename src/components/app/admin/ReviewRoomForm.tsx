@@ -288,7 +288,7 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
         )}
 
         <div className="space-y-4">
-          <h3 className="text-lg font-medium">Positions and Candidates</h3>
+          <h3 className="text-lg font-medium">Positions</h3>
           {positionFields.map((positionItem, positionIndex) => ( 
             <Card key={positionItem.id} className="relative group/position">
               <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
@@ -375,7 +375,7 @@ interface SimpleCandidateFieldsProps {
 }
 
 function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidateFieldsProps) {
-  const { fields, append, remove } = useFieldArray({
+  const { fields } = useFieldArray({
     control,
     name: `positions.${positionIndex}.candidates`,
   });
@@ -385,11 +385,11 @@ function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidate
 
   return (
     <div className="space-y-6 pl-4 border-l-2 border-primary/20">
-      <h4 className="text-sm font-medium text-muted-foreground">Candidates for this position:</h4>
+      <h4 className="text-sm font-medium text-muted-foreground">Candidate for this position:</h4>
       {fields.map((candidateItem, candidateIndex) => {
         return (
-          <div key={candidateItem.id} className="flex flex-row items-center gap-4 group/candidate">
-            <div className="flex-grow space-y-3">
+          <div key={candidateItem.id} className="flex flex-row items-center gap-4">
+            <div className="flex-grow">
                 <FormField
                 control={control}
                 name={`positions.${positionIndex}.candidates.${candidateIndex}.name`}
@@ -397,39 +397,16 @@ function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidate
                     <FormItem>
                     <FormLabel className="text-xs sr-only">Candidate Name</FormLabel>
                     <FormControl>
-                        <Input placeholder={`Candidate ${candidateIndex + 1} Name`} {...field} suppressHydrationWarning={true} />
+                        <Input placeholder={`Candidate Name`} {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}
                 />
             </div>
-
-            {fields.length > 1 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => remove(candidateIndex)}
-                className="text-destructive hover:bg-destructive/10 h-8 w-8 opacity-50 group-hover/candidate:opacity-100 transition-opacity self-center"
-                suppressHydrationWarning={true}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
           </div>
         );
       })}
-      <Button
-        type="button"
-        variant="link"
-        size="sm"
-        onClick={() => append({ id: generateClientSideId('cand'), name: "" })}
-        className="text-primary hover:text-primary/80 px-0"
-        suppressHydrationWarning={true}
-      >
-        <PlusCircle className="mr-1 h-4 w-4" /> Add Candidate
-      </Button>
       {typeof candidateErrors === 'string' && <p className="text-sm font-medium text-destructive">{candidateErrors}</p>}
       {candidateErrors?.root && typeof candidateErrors.root === 'object' && 'message' in candidateErrors.root && (
         <p className="text-sm font-medium text-destructive">{String(candidateErrors.root.message)}</p>
