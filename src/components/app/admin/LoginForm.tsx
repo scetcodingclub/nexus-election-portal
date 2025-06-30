@@ -20,6 +20,7 @@ import { useState, useEffect } from "react";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { signInWithEmailAndPassword, AuthError } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
+import Link from "next/link";
 
 const loginFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -98,7 +99,7 @@ export default function LoginForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="email"
@@ -158,7 +159,12 @@ export default function LoginForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isLoading} suppressHydrationWarning={true}>
+         <div className="text-sm text-right">
+            <Link href="/admin/forgot-password" className="font-medium text-primary hover:underline">
+                Forgot Password?
+            </Link>
+        </div>
+        <Button type="submit" className="w-full pt-6" disabled={isLoading} suppressHydrationWarning={true}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
