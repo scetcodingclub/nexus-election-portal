@@ -10,64 +10,98 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { CheckCircle, Loader2, Lock } from "lucide-react";
+import { CheckCircle, Loader2, Lock, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { checkUserHasVoted, recordUserVote } from "@/lib/electionRoomService";
+import { checkUserHasVoted, recordUserVote, getElectionRoomById } from "@/lib/electionRoomService";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface VotingBallotProps {
-  room: ElectionRoom;
+  roomId: string;
 }
 
-export default function VotingBallot({ room }: VotingBallotProps) {
+function BallotLoadingSkeleton() {
+    return (
+        <div className="space-y-8">
+            <Skeleton className="h-10 w-3/4 mx-auto" /> {/* Title */}
+            <Skeleton className="h-6 w-full mx-auto" /> {/* Description */}
+            {[1, 2].map(posId => (
+                <Card key={posId} className="shadow-lg">
+                    <CardHeader>
+                        <Skeleton className="h-8 w-1/2" /> {/* Position Title */}
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {[1, 2, 3].map(candId => (
+                            <div key={candId} className="border rounded-lg p-4 space-y-2">
+                                <Skeleton className="h-24 w-24 rounded-full mx-auto" data-ai-hint="person portrait" />
+                                <Skeleton className="h-6 w-3/4 mx-auto" /> {/* Candidate Name */}
+                                <Skeleton className="h-10 w-full" /> {/* Vote Button */}
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
+            ))}
+            <Skeleton className="h-12 w-1/3 mx-auto" /> {/* Submit All Votes Button */}
+        </div>
+    );
+}
+
+export default function VotingBallot({ roomId }: VotingBallotProps) {
+  const [room, setRoom] = useState<ElectionRoom | null>(null);
   const [selectedVotes, setSelectedVotes] = useState<Record<string, string>>({}); // positionId: candidateId
   const [isLoading, setIsLoading] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lockedPositions, setLockedPositions] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const router = useRouter();
   const [voterEmail, setVoterEmail] = useState<string | null>(null);
 
   useEffect(() => {
-    const email = localStorage.getItem(`voterEmail-${room.id}`);
+    const email = localStorage.getItem(`voterEmail-${roomId}`);
     if (!email) {
       toast({ variant: "destructive", title: "Access Error", description: "Voter email not found. Please start over by entering your email again." });
-      router.push(`/vote/${room.id}`);
+      router.push(`/vote/${roomId}`);
       return;
     }
     setVoterEmail(email);
 
-    async function verifyVoter() {
+    async function initializeBallot() {
       try {
-        const hasVoted = await checkUserHasVoted(room.id, email!);
-        if (hasVoted) {
-          router.replace(`/vote/${room.id}/thank-you?status=already_voted`);
-        } else if (room.status !== 'active') {
-          const message = room.status === 'closed' ? 'This election is closed.' : 'This election has not started yet.';
-          toast({ variant: "destructive", title: "Election Not Active", description: message });
-          router.replace(`/vote/${room.id}`);
+        const roomData = await getElectionRoomById(roomId);
+        if (!roomData) {
+          setError("This voting room could not be found.");
+          return;
         }
-      } catch (error) {
-        console.error("Error checking voter status:", error);
-        toast({ variant: "destructive", title: "Verification Error", description: "Could not verify your voting status. Please try again." });
-        router.push(`/vote/${room.id}`);
+        
+        const hasVoted = await checkUserHasVoted(roomId, email!);
+        if (hasVoted) {
+          router.replace(`/vote/${roomId}/thank-you?status=already_voted`);
+          return;
+        }
+        
+        if (roomData.status !== 'active') {
+          const message = roomData.status === 'closed' ? 'This election is closed and no longer accepting votes.' : 'This election has not started yet. Please check back later.';
+          setError(message);
+          return;
+        }
+
+        setRoom(roomData);
+      } catch (err) {
+        console.error("Error initializing ballot:", err);
+        setError("An unexpected error occurred while loading the ballot. Please try again.");
       } finally {
-        setIsVerifying(false);
+        setIsInitializing(false);
       }
     }
     
-    if (email) {
-        verifyVoter();
+    if (email && roomId) {
+      initializeBallot();
     }
-
-  }, [room.id, room.status, router, toast]);
+  }, [roomId, router, toast]);
 
   const handleVoteChange = (positionId: string, candidateId: string) => {
     if (lockedPositions.has(positionId)) return;
-
-    setSelectedVotes((prev) => ({
-      ...prev,
-      [positionId]: candidateId,
-    }));
+    setSelectedVotes((prev) => ({ ...prev, [positionId]: candidateId }));
   };
 
   const handleLockVote = (positionId: string) => {
@@ -76,55 +110,41 @@ export default function VotingBallot({ room }: VotingBallotProps) {
       return;
     }
     setLockedPositions(prev => new Set(prev).add(positionId));
-    toast({ title: "Vote Locked", description: `Your vote for ${room.positions.find(p=>p.id === positionId)?.title} is locked.`});
+    toast({ title: "Vote Locked", description: `Your vote for ${room?.positions.find(p=>p.id === positionId)?.title} is locked.`});
   };
 
   const handleSubmitAllVotes = async () => {
+    if (!room) return;
     if (Object.keys(selectedVotes).length !== room.positions.length) {
-      toast({
-        variant: "destructive",
-        title: "Incomplete Ballot",
-        description: `Please cast your vote for all ${room.positions.length} positions. You have voted for ${Object.keys(selectedVotes).length}.`,
-      });
+      toast({ variant: "destructive", title: "Incomplete Ballot", description: `Please cast your vote for all ${room.positions.length} positions. You have voted for ${Object.keys(selectedVotes).length}.` });
       return;
     }
     
     const allLocked = room.positions.every(p => lockedPositions.has(p.id));
     if (!allLocked) {
-        toast({
-            variant: "destructive",
-            title: "Lock All Votes",
-            description: "Please lock your selection for each position before submitting the ballot."
-        });
-        return;
+      toast({ variant: "destructive", title: "Lock All Votes", description: "Please lock your selection for each position before submitting the ballot." });
+      return;
     }
 
     if (!voterEmail) {
-        toast({ variant: "destructive", title: "Error", description: "Voter identification missing. Please restart the voting process." });
-        router.push(`/vote/${room.id}`);
-        return;
+      toast({ variant: "destructive", title: "Error", description: "Voter identification missing. Please restart the voting process." });
+      router.push(`/vote/${roomId}`);
+      return;
     }
 
     setIsLoading(true);
     try {
-      // Final check before recording vote
-      const hasVoted = await checkUserHasVoted(room.id, voterEmail);
+      const hasVoted = await checkUserHasVoted(roomId, voterEmail);
       if (hasVoted) {
-        router.push(`/vote/${room.id}/thank-you?status=already_voted`);
+        router.push(`/vote/${roomId}/thank-you?status=already_voted`);
         setIsLoading(false);
         return;
       }
 
-      await recordUserVote(room.id, voterEmail, selectedVotes);
-      
-      localStorage.removeItem(`voterEmail-${room.id}`); 
-
-      toast({
-        title: "Votes Submitted!",
-        description: "Thank you for participating in the election.",
-        className: "bg-primary text-primary-foreground"
-      });
-      router.push(`/vote/${room.id}/thank-you`);
+      await recordUserVote(roomId, voterEmail, selectedVotes);
+      localStorage.removeItem(`voterEmail-${roomId}`); 
+      toast({ title: "Votes Submitted!", description: "Thank you for participating in the election.", className: "bg-primary text-primary-foreground" });
+      router.push(`/vote/${roomId}/thank-you`);
     } catch (error) {
       console.error("Error submitting votes:", error);
       toast({ variant: "destructive", title: "Submission Failed", description: "Could not submit your votes. Please try again." });
@@ -133,14 +153,35 @@ export default function VotingBallot({ room }: VotingBallotProps) {
     }
   };
 
-  if (isVerifying || !voterEmail) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="ml-4 text-lg mt-4">Verifying voter information and election status...</p>
-      </div>
+  if (isInitializing) {
+    return <BallotLoadingSkeleton />;
+  }
+  
+  if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] py-12 text-center">
+            <Card className="w-full max-w-md shadow-xl p-6 border-destructive">
+                <CardHeader>
+                    <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-4">
+                        <AlertTriangle className="h-10 w-10" />
+                    </div>
+                    <CardTitle className="text-2xl font-headline">Access Issue</CardTitle>
+                    <CardDescription>{error}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild variant="outline">
+                        <Link href={`/vote`}>
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Return to Voter Access
+                        </Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        </div>
     );
   }
+
+  if (!room) return null; // Should be covered by error state
 
   return (
     <div className="space-y-10">
@@ -222,7 +263,7 @@ export default function VotingBallot({ room }: VotingBallotProps) {
         <Button
           size="lg"
           onClick={handleSubmitAllVotes}
-          disabled={isLoading || isVerifying || room.positions.some(p => !lockedPositions.has(p.id))}
+          disabled={isLoading || isInitializing || room.positions.some(p => !lockedPositions.has(p.id))}
           className="min-w-[200px] text-lg py-3 px-6 transition-transform duration-200 hover:scale-105 active:scale-95"
           aria-live="polite"
         >
@@ -235,7 +276,7 @@ export default function VotingBallot({ room }: VotingBallotProps) {
           )}
         </Button>
       </div>
-       {room.positions.some(p => !lockedPositions.has(p.id)) && !isVerifying && (
+       {room.positions.some(p => !lockedPositions.has(p.id)) && !isInitializing && (
            <p className="text-center text-sm text-muted-foreground mt-4">
                Please select and lock your vote for all positions before submitting.
            </p>
