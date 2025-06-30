@@ -33,7 +33,7 @@ function StatusBadge({ status }: { status: ElectionRoom['status'] }) {
 function RoomTypeBadge({ type }: { type: ElectionRoom['roomType'] }) {
   if (type === 'review') {
     return (
-      <Badge variant="outline" className="text-amber-600 border-amber-500/50">
+      <Badge variant="outline" className="text-purple-600 border-purple-500/50">
         <Star className="mr-1 h-3 w-3" /> REVIEW
       </Badge>
     );
@@ -169,7 +169,7 @@ export default function AdminDashboardPage() {
               className={cn(
                 "flex flex-col hover:shadow-xl transition-all duration-300 border-2",
                  room.roomType === 'review' 
-                    ? "border-amber-500/40 hover:border-amber-500/60 bg-amber-500/5" 
+                    ? "border-purple-500/40 hover:border-purple-500/60 bg-purple-500/5" 
                     : "border-primary/40 hover:border-primary/60 bg-primary/5"
               )}
             >
