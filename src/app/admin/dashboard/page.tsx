@@ -119,7 +119,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
         <Button asChild variant="secondary">
-          <Link href="/admin/rooms/create">
+          <Link href="/admin/rooms/create-review">
             <PenSquare className="mr-2 h-5 w-5" /> Create New Review Room
           </Link>
         </Button>

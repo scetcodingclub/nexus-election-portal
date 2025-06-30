@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,22 +20,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import type { ElectionRoom, Position as PositionType, Candidate as CandidateType } from "@/lib/types"; 
+import type { ElectionRoom } from "@/lib/types"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon } from "lucide-react";
-import { useState, ChangeEvent, useEffect } from "react";
-import Image from "next/image";
-import { storage, db } from "@/lib/firebaseClient"; 
-import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { PlusCircle, Trash2, Loader2, GripVertical } from "lucide-react";
+import { useState, useEffect } from "react";
+import { db } from "@/lib/firebaseClient"; 
 import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore"; 
-import { cn } from "@/lib/utils";
 
-
+// Simplified candidate schema without image
 const candidateSchema = z.object({
   id: z.string().optional(), 
   name: z.string().min(1, "Candidate name is required."),
-  imageUrl: z.string().url("Image URL must be a valid URL.").optional().or(z.literal('')),
-  voteCount: z.number().optional(), // Keep voteCount
+  voteCount: z.number().optional(),
 });
 
 const positionSchema = z.object({
@@ -44,7 +40,7 @@ const positionSchema = z.object({
   candidates: z.array(candidateSchema).min(1, "At least one candidate is required for a position."),
 });
 
-const electionRoomFormSchema = z.object({
+const reviewRoomFormSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
   isAccessRestricted: z.boolean().default(false),
@@ -61,25 +57,22 @@ const electionRoomFormSchema = z.object({
   path: ["accessCode"],
 });
 
-type ElectionRoomFormValues = z.infer<typeof electionRoomFormSchema>;
+type ReviewRoomFormValues = z.infer<typeof reviewRoomFormSchema>;
 
-interface ElectionRoomFormProps {
+interface ReviewRoomFormProps {
   initialData?: ElectionRoom; 
 }
 
-// Helper to generate client-side unique IDs
 const generateClientSideId = (prefix: string = "item") => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
 
-
-export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps) {
+export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isFormMounted, setIsFormMounted] = useState(false);
 
-
-  const form = useForm<ElectionRoomFormValues>({
-    resolver: zodResolver(electionRoomFormSchema),
+  const form = useForm<ReviewRoomFormValues>({
+    resolver: zodResolver(reviewRoomFormSchema),
     defaultValues: initialData ? {
       title: initialData.title || "",
       description: initialData.description || "",
@@ -87,22 +80,21 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       accessCode: initialData.accessCode || "",
       status: initialData.status || "pending",
       positions: (initialData.positions || []).map(p => ({
-        id: p.id, // Use Firestore ID for our data model
+        id: p.id,
         title: p.title || "",
         candidates: (p.candidates || []).map(c => ({
-          id: c.id, // Use Firestore ID for our data model
+          id: c.id,
           name: c.name || "",
-          imageUrl: c.imageUrl || "",
           voteCount: c.voteCount || 0,
         })),
       })),
-    } : { // For new forms
+    } : {
       title: "",
       description: "",
       isAccessRestricted: false,
       accessCode: "",
       status: "pending",
-      positions: [], // Initialize as empty, will be populated by useEffect
+      positions: [],
     },
   });
   
@@ -111,17 +103,15 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
     name: "positions",
   });
 
-  // Populate initial position for new forms on client mount
   useEffect(() => {
     setIsFormMounted(true);
     if (!initialData && positionFields.length === 0 && form.formState.isMounted) {
       appendPosition({
-        id: generateClientSideId('pos'), // Application-specific ID
+        id: generateClientSideId('pos'),
         title: "",
         candidates: [{
-          id: generateClientSideId('cand'), // Application-specific ID
+          id: generateClientSideId('cand'),
           name: "",
-          imageUrl: ""
         }]
       });
     }
@@ -129,17 +119,15 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
   
   const watchIsAccessRestricted = form.watch("isAccessRestricted");
 
-
-  async function onSubmit(values: ElectionRoomFormValues) {
+  async function onSubmit(values: ReviewRoomFormValues) {
     setIsLoading(true);
 
     const firestoreReadyPositions = values.positions.map(p => ({
-        id: p.id || generateClientSideId('pos'), // Ensure ID for Firestore
+        id: p.id || generateClientSideId('pos'),
         title: p.title,
         candidates: p.candidates.map(c => ({
-            id: c.id || generateClientSideId('cand'), // Ensure ID for Firestore
+            id: c.id || generateClientSideId('cand'),
             name: c.name,
-            imageUrl: c.imageUrl,
             voteCount: c.voteCount || 0 
         })),
     }));
@@ -149,8 +137,8 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       description: values.description,
       isAccessRestricted: values.isAccessRestricted,
       positions: firestoreReadyPositions,
-      roomType: 'voting', // Explicitly set type for voting rooms
-      status: values.status || 'pending', // Ensure status is always set
+      status: values.status || 'pending',
+      roomType: 'review', // Differentiate this from a voting room
     };
 
     if (values.isAccessRestricted) {
@@ -168,29 +156,28 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           createdAt: initialData.createdAt ? Timestamp.fromDate(new Date(initialData.createdAt)) : serverTimestamp(),
         }, { merge: true }); 
         toast({
-          title: "Voting Room Updated",
+          title: "Review Room Updated",
           description: `"${values.title}" has been successfully updated.`,
         });
       } else {
-        // New room explicitly sets status to pending if not provided (though schema default handles it)
         dataToSave.status = dataToSave.status || 'pending';
         await addDoc(collection(db, "electionRooms"), {
           ...dataToSave,
           createdAt: serverTimestamp(),
         });
         toast({
-          title: "Voting Room Created",
+          title: "Review Room Created",
           description: `"${values.title}" has been successfully created.`,
         });
       }
       router.push("/admin/dashboard");
       router.refresh(); 
     } catch (error) {
-      console.error("Error saving voting room: ", error);
+      console.error("Error saving review room: ", error);
       toast({
         variant: "destructive",
         title: "Save Failed",
-        description: "Could not save voting room. Please try again.",
+        description: "Could not save review room. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -198,7 +185,6 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
   }
   
   if (!isFormMounted && !initialData) {
-    // Render a loader or minimal content until the form is ready for new entries
     return (
       <div className="flex justify-center items-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -206,7 +192,6 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       </div>
     );
   }
-
 
   return (
     <Form {...form}>
@@ -216,9 +201,9 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Voting Title</FormLabel>
+              <FormLabel>Room Title</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Annual Student Body Election" {...field} suppressHydrationWarning={true} />
+                <Input placeholder="e.g., Q1 2024 Member Review" {...field} suppressHydrationWarning={true} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -231,7 +216,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea placeholder="Provide a brief description of the election." {...field} rows={4} suppressHydrationWarning={true} />
+                <Textarea placeholder="Provide a brief description of the review/rating." {...field} rows={4} suppressHydrationWarning={true} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -244,21 +229,21 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             name="status"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Election Status</FormLabel>
+                <FormLabel>Room Status</FormLabel>
                 <Select onValueChange={field.onChange} defaultValue={field.value} >
                   <FormControl>
                     <SelectTrigger suppressHydrationWarning={true}>
-                      <SelectValue placeholder="Select election status" />
+                      <SelectValue placeholder="Select room status" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="pending">Pending (Not yet open for voting)</SelectItem>
-                    <SelectItem value="active">Active (Open for voting)</SelectItem>
-                    <SelectItem value="closed">Closed (Voting has ended)</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  Manage the current state. Set to 'Active' to start the election and allow voting.
+                  Manage the current state. Set to 'Active' to start the review.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -277,7 +262,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
               <div className="space-y-1 leading-none">
                 <FormLabel>Restrict Access?</FormLabel>
                 <FormDescription>
-                  If checked, voters will need an access code to enter this voting room.
+                  If checked, participants will need an access code to enter this room.
                 </FormDescription>
               </div>
             </FormItem>
@@ -291,10 +276,10 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
               <FormItem>
                 <FormLabel>Access Code</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., VOTE2024" {...field} suppressHydrationWarning={true} />
+                  <Input placeholder="e.g., REVIEW2024" {...field} suppressHydrationWarning={true} />
                 </FormControl>
                 <FormDescription>
-                  A unique code for voters to access this voting room. Minimum 4 characters.
+                  A unique code for participants to access this room. Minimum 4 characters.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -340,7 +325,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
                     </FormItem>
                   )}
                 />
-                <CandidateFields positionIndex={positionIndex} form={form} control={form.control} />
+                <SimpleCandidateFields positionIndex={positionIndex} control={form.control} form={form} />
               </CardContent>
             </Card>
           ))}
@@ -353,7 +338,6 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
                 candidates: [{ 
                     id: generateClientSideId('cand'), 
                     name: "", 
-                    imageUrl:"" 
                 }] 
             })}
             className="w-full"
@@ -373,10 +357,10 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
            {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {initialData ? 'Updating Voting Room...' : 'Creating Voting Room...'}
+              {initialData ? 'Updating Room...' : 'Creating Room...'}
             </>
           ) : (
-            initialData ? 'Update Voting Room' : 'Create Voting Room'
+            initialData ? 'Update Review Room' : 'Create Review Room'
           )}
         </Button>
       </form>
@@ -384,118 +368,34 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
   );
 }
 
-
-interface CandidateFieldsProps {
+interface SimpleCandidateFieldsProps {
   positionIndex: number;
   control: any; 
   form: any; 
 }
 
-function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps) {
+function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidateFieldsProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: `positions.${positionIndex}.candidates`,
   });
 
-  const { toast } = useToast();
-  const [uploadingStates, setUploadingStates] = useState<Record<string, boolean>>({});
-  const [isClientMounted, setIsClientMounted] = useState(false); 
-
-  useEffect(() => {
-    setIsClientMounted(true); 
-  }, []);
-
-  const handleFileChange = async (
-    event: ChangeEvent<HTMLInputElement>,
-    rhfCandidateId: string, // This is the RHF field id (candidateItem.id)
-    candidateIndex: number
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setUploadingStates(prev => ({ ...prev, [rhfCandidateId]: true }));
-
-    try {
-      const imageRef = storageRef(storage, `candidate-images/${Date.now()}-${file.name}`);
-      await uploadBytes(imageRef, file);
-      const downloadURL = await getDownloadURL(imageRef);
-
-      form.setValue(`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`, downloadURL);
-      toast({ title: "Image Uploaded", description: "Candidate image successfully uploaded." });
-    } catch (error) {
-      console.error("Image upload error:", error);
-      toast({ variant: "destructive", title: "Upload Failed", description: "Could not upload candidate image." });
-    } finally {
-      setUploadingStates(prev => ({ ...prev, [rhfCandidateId]: false }));
-      if (event.target) {
-        event.target.value = ""; // Reset file input
-      }
-    }
-  };
-  
   const { formState: { errors } } = form; 
   const candidateErrors = errors.positions?.[positionIndex]?.candidates;
-
 
   return (
     <div className="space-y-6 pl-4 border-l-2 border-primary/20">
       <h4 className="text-sm font-medium text-muted-foreground">Candidates for this position:</h4>
-      {fields.map((candidateItem, candidateIndex) => { // candidateItem.id IS the stable RHF field ID
-        const currentImageUrl = form.watch(`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`);
-        // Use RHF's stable candidateItem.id for generating a unique ID for the file input
-        const uniqueFileIdForInput = isClientMounted ? `file-upload-${candidateItem.id}` : undefined;
-
+      {fields.map((candidateItem, candidateIndex) => {
         return (
-          <div key={candidateItem.id} className="flex flex-col sm:flex-row items-start gap-4 group/candidate p-3 border rounded-md bg-background/50">
-            <div className="flex-shrink-0 w-full sm:w-auto">
-              <FormLabel className="text-xs">Candidate Image</FormLabel>
-              <div className="mt-1 w-28 h-28 relative border rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                {uploadingStates[candidateItem.id] && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-                    <Loader2 className="h-8 w-8 animate-spin text-white" />
-                  </div>
-                )}
-                {currentImageUrl ? (
-                  <Image
-                    src={currentImageUrl}
-                    alt={`Candidate ${candidateIndex + 1} image`}
-                    width={112}
-                    height={112}
-                    className="object-cover w-full h-full"
-                  />
-                ) : (
-                  <div className="text-muted-foreground flex flex-col items-center" data-ai-hint="person portrait">
-                    <ImageIcon className="h-10 w-10" />
-                    <span className="text-xs mt-1">No Image</span>
-                  </div>
-                )}
-              </div>
-               <Controller
-                control={control}
-                name={`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`}
-                render={({ field }) => ( 
-                  <Input
-                    id={uniqueFileIdForInput} // Use client-side generated ID based on RHF's field.id
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileChange(e, candidateItem.id, candidateIndex)}
-                    className="mt-2 text-xs h-8"
-                    disabled={uploadingStates[candidateItem.id]}
-                    suppressHydrationWarning={true} 
-                    // field.value (imageUrl string) is handled by RHF setValue, file input value is not directly controlled for files
-                  />
-                )}
-              />
-              <FormMessage>{form.formState.errors.positions?.[positionIndex]?.candidates?.[candidateIndex]?.imageUrl?.message}</FormMessage>
-            </div>
-
+          <div key={candidateItem.id} className="flex flex-row items-center gap-4 group/candidate">
             <div className="flex-grow space-y-3">
                 <FormField
                 control={control}
                 name={`positions.${positionIndex}.candidates.${candidateIndex}.name`}
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel className="text-xs">Candidate Name</FormLabel>
+                    <FormLabel className="text-xs sr-only">Candidate Name</FormLabel>
                     <FormControl>
                         <Input placeholder={`Candidate ${candidateIndex + 1} Name`} {...field} suppressHydrationWarning={true} />
                     </FormControl>
@@ -511,8 +411,7 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
                 variant="ghost"
                 size="icon"
                 onClick={() => remove(candidateIndex)}
-                className="text-destructive hover:bg-destructive/10 h-8 w-8 opacity-50 group-hover/candidate:opacity-100 transition-opacity self-start sm:self-center mt-2 sm:mt-0"
-                disabled={uploadingStates[candidateItem.id]}
+                className="text-destructive hover:bg-destructive/10 h-8 w-8 opacity-50 group-hover/candidate:opacity-100 transition-opacity self-center"
                 suppressHydrationWarning={true}
               >
                 <Trash2 className="h-4 w-4" />
@@ -525,7 +424,7 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
         type="button"
         variant="link"
         size="sm"
-        onClick={() => append({ id: generateClientSideId('cand'), name: "", imageUrl: "" })}
+        onClick={() => append({ id: generateClientSideId('cand'), name: "" })}
         className="text-primary hover:text-primary/80 px-0"
         suppressHydrationWarning={true}
       >
@@ -535,7 +434,6 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
       {candidateErrors?.root && typeof candidateErrors.root === 'object' && 'message' in candidateErrors.root && (
         <p className="text-sm font-medium text-destructive">{String(candidateErrors.root.message)}</p>
       )}
-
     </div>
   );
 }

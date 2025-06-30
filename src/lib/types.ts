@@ -1,3 +1,4 @@
+
 export interface Candidate {
   id: string;
   name: string;
@@ -21,10 +22,10 @@ export interface ElectionRoom {
   createdAt: string;
   updatedAt?: string; // Added for Firestore timestamp
   status: 'pending' | 'active' | 'closed';
+  roomType?: 'voting' | 'review';
 }
 
 export interface Vote {
   positionId: string;
   candidateId: string;
 }
-
