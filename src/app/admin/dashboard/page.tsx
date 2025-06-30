@@ -11,10 +11,11 @@ import type { ElectionRoom } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle, PenSquare } from "lucide-react";
+import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle, PenSquare, Vote, Star } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
+import { cn } from "@/lib/utils";
 
 function StatusBadge({ status }: { status: ElectionRoom['status'] }) {
   switch (status) {
@@ -27,6 +28,22 @@ function StatusBadge({ status }: { status: ElectionRoom['status'] }) {
     default:
       return <Badge variant="outline">Unknown</Badge>;
   }
+}
+
+function RoomTypeBadge({ type }: { type: ElectionRoom['roomType'] }) {
+  if (type === 'review') {
+    return (
+      <Badge variant="outline" className="text-amber-600 border-amber-500/50">
+        <Star className="mr-1 h-3 w-3" /> Review
+      </Badge>
+    );
+  }
+  // Default to voting for existing or unspecified rooms
+  return (
+    <Badge variant="outline" className="text-primary border-primary/50">
+      <Vote className="mr-1 h-3 w-3" /> Voting
+    </Badge>
+  );
 }
 
 function DashboardSkeleton() {
@@ -147,11 +164,22 @@ export default function AdminDashboardPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {electionRooms.map((room) => (
-            <Card key={room.id} className="flex flex-col hover:shadow-lg transition-shadow duration-300">
+            <Card 
+              key={room.id} 
+              className={cn(
+                "flex flex-col hover:shadow-lg transition-shadow duration-300 border-2",
+                 room.roomType === 'review' 
+                    ? "border-amber-500/20 hover:border-amber-500/50" 
+                    : "border-primary/20 hover:border-primary/50"
+              )}
+            >
               <CardHeader>
-                <div className="flex justify-between items-start">
+                 <div className="flex justify-between items-start gap-2">
                   <CardTitle className="text-xl font-headline mb-1">{room.title}</CardTitle>
-                  <StatusBadge status={room.status} />
+                  <div className="flex-shrink-0 flex flex-col items-end gap-2">
+                    <StatusBadge status={room.status} />
+                    <RoomTypeBadge type={room.roomType} />
+                  </div>
                 </div>
                 <CardDescription className="text-sm line-clamp-2">{room.description}</CardDescription>
               </CardHeader>
