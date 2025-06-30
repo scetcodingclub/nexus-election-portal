@@ -102,7 +102,7 @@ export default function VoterListPage() {
         <div className="max-w-4xl mx-auto space-y-6">
             <Button variant="outline" asChild>
                 <Link href={`/admin/rooms/${roomId}/manage`}>
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Room
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Voting Room
                 </Link>
             </Button>
             <VoterListSkeleton />
@@ -115,7 +115,7 @@ export default function VoterListPage() {
         <div className="max-w-4xl mx-auto space-y-6">
              <Button variant="outline" asChild>
                 <Link href={`/admin/rooms/${roomId}/manage`}>
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Room
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Voting Room
                 </Link>
             </Button>
             <Card className="shadow-xl border-destructive">
@@ -143,7 +143,7 @@ export default function VoterListPage() {
       <div className="flex justify-between items-center">
         <Button variant="outline" asChild>
           <Link href={`/admin/rooms/${room.id}/manage`}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Room
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Voting Room
           </Link>
         </Button>
       </div>

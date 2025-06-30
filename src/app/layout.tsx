@@ -12,7 +12,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'NEXUS Voting Panel',
+  title: 'N.E.X.U.S Election Board',
   description: 'Administer and participate in elections securely and easily.',
 };
 

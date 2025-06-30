@@ -11,7 +11,7 @@ import type { ElectionRoom } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle } from "lucide-react";
+import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle, PenSquare } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
@@ -34,7 +34,10 @@ function DashboardSkeleton() {
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <Skeleton className="h-10 w-72" />
-        <Skeleton className="h-10 w-56" />
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="h-10 w-56" />
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[1, 2, 3].map((i) => (
@@ -118,24 +121,31 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold font-headline">Election Panel</h1>
-        <Button asChild>
-          <Link href="/admin/rooms/create">
-            <PlusCircle className="mr-2 h-5 w-5" /> Create New Election Room
-          </Link>
-        </Button>
+        <h1 className="text-3xl font-bold font-headline">Voting Panel</h1>
+        <div className="flex gap-2">
+          <Button asChild variant="secondary">
+            <Link href="/admin/rooms/create">
+              <PenSquare className="mr-2 h-5 w-5" /> Create New Review Voting Room
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/admin/rooms/create">
+              <PlusCircle className="mr-2 h-5 w-5" /> Create New Voting Room
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {electionRooms.length === 0 ? (
         <Card className="text-center py-12">
           <CardHeader>
-            <CardTitle className="text-2xl">No Election Rooms Yet</CardTitle>
-            <CardDescription>Get started by creating your first election room.</CardDescription>
+            <CardTitle className="text-2xl">No Voting Rooms Yet</CardTitle>
+            <CardDescription>Get started by creating your first voting room.</CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild size="lg">
               <Link href="/admin/rooms/create">
-                <PlusCircle className="mr-2 h-5 w-5" /> Create Election Room
+                <PlusCircle className="mr-2 h-5 w-5" /> Create Voting Room
               </Link>
             </Button>
           </CardContent>

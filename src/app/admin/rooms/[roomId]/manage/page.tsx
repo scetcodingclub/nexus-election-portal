@@ -97,7 +97,7 @@ export default async function ManageElectionRoomPage({ params }: { params: { roo
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle className="text-3xl font-headline">Manage: {room.title}</CardTitle>
-          <CardDescription>Edit details, positions, candidates, and manage access for this election room.</CardDescription>
+          <CardDescription>Edit details, positions, candidates, and manage access for this voting room.</CardDescription>
         </CardHeader>
         <CardContent>
           <ElectionRoomForm initialData={room} />
@@ -131,9 +131,9 @@ export default async function ManageElectionRoomPage({ params }: { params: { roo
         <CardContent className="space-y-4">
            <Alert variant="default">
             <Fingerprint className="h-4 w-4" />
-            <AlertTitle>Your Election Room ID</AlertTitle>
+            <AlertTitle>Your Voting Room ID</AlertTitle>
             <AlertDescription>
-              Voters will need this ID to access the election room manually. It is also embedded in the shareable link and QR code.
+              Voters will need this ID to access the voting room manually. It is also embedded in the shareable link and QR code.
               <div className="mt-2">
                 <code className="text-sm bg-muted px-2 py-1 rounded font-mono break-all">
                   {room.id}

@@ -11,14 +11,14 @@ export default function NotFound() {
           <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-4">
             <AlertTriangle className="h-12 w-12" />
           </div>
-          <CardTitle className="text-4xl font-bold">Election Room Not Found</CardTitle>
+          <CardTitle className="text-4xl font-bold">Voting Room Not Found</CardTitle>
           <CardDescription className="text-lg mt-2">
-            The election room ID you entered is invalid or the room does not exist. Please check the ID and try again.
+            The voting room ID you entered is invalid or the room does not exist. Please check the ID and try again.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild>
-            <Link href="/vote">Enter a different Room ID</Link>
+            <Link href="/vote">Enter a different Voting Room ID</Link>
           </Button>
         </CardContent>
       </Card>

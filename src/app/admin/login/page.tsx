@@ -11,7 +11,7 @@ export default function AdminLoginPage() {
             <ShieldCheckIcon className="h-10 w-10" />
           </div>
           <CardTitle className="text-3xl font-headline">Admin Login</CardTitle>
-          <CardDescription>Access the NEXUS Voting Panel dashboard.</CardDescription>
+          <CardDescription>Access the N.E.X.U.S Election Board dashboard.</CardDescription>
         </CardHeader>
         <CardContent>
           <LoginForm />

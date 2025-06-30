@@ -44,20 +44,20 @@ export default function VoterAccessPage() {
             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
           <CardTitle className="text-3xl font-headline">Voter Access</CardTitle>
-          <CardDescription>Enter the Election Room ID. If the room is private, you will also need an access code.</CardDescription>
+          <CardDescription>Enter the Voting Room ID. If the room is private, you will also need an access code.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="roomId" className="text-base">Election Room ID</Label>
+              <Label htmlFor="roomId" className="text-base">Voting Room ID</Label>
               <Input
                 id="roomId"
                 name="roomId"
                 type="text"
-                placeholder="Enter Room ID (e.g., NEXUS2024)"
+                placeholder="Enter Voting Room ID (e.g., NEXUS2024)"
                 className="mt-1 text-base md:text-sm"
                 required
-                aria-label="Election Room ID"
+                aria-label="Voting Room ID"
                 suppressHydrationWarning={true}
               />
             </div>
@@ -80,7 +80,7 @@ export default function VoterAccessPage() {
                 </>
               ) : (
                 <>
-                 Enter Room <ArrowRight className="ml-2 h-4 w-4" />
+                 Enter Voting Room <ArrowRight className="ml-2 h-4 w-4" />
                 </>
               )}
             </Button>

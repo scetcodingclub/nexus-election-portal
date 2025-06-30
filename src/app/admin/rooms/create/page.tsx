@@ -14,8 +14,8 @@ export default function CreateElectionRoomPage() {
       </Button>
       <Card className="shadow-xl">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline">Create New Election Room</CardTitle>
-          <CardDescription>Define the details for your new election room.</CardDescription>
+          <CardTitle className="text-3xl font-headline">Create New Voting Room</CardTitle>
+          <CardDescription>Define the details for your new voting room.</CardDescription>
         </CardHeader>
         <CardContent>
           <ElectionRoomForm />

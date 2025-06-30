@@ -167,7 +167,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           createdAt: initialData.createdAt ? Timestamp.fromDate(new Date(initialData.createdAt)) : serverTimestamp(),
         }, { merge: true }); 
         toast({
-          title: "Election Room Updated",
+          title: "Voting Room Updated",
           description: `"${values.title}" has been successfully updated.`,
         });
       } else {
@@ -178,18 +178,18 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           createdAt: serverTimestamp(),
         });
         toast({
-          title: "Election Room Created",
+          title: "Voting Room Created",
           description: `"${values.title}" has been successfully created.`,
         });
       }
       router.push("/admin/dashboard");
       router.refresh(); 
     } catch (error) {
-      console.error("Error saving election room: ", error);
+      console.error("Error saving voting room: ", error);
       toast({
         variant: "destructive",
         title: "Save Failed",
-        description: "Could not save election room. Please try again.",
+        description: "Could not save voting room. Please try again.",
       });
     } finally {
       setIsLoading(false);
@@ -215,7 +215,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Election Title</FormLabel>
+              <FormLabel>Voting Title</FormLabel>
               <FormControl>
                 <Input placeholder="e.g., Annual Student Body Election" {...field} suppressHydrationWarning={true} />
               </FormControl>
@@ -276,7 +276,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
               <div className="space-y-1 leading-none">
                 <FormLabel>Restrict Access?</FormLabel>
                 <FormDescription>
-                  If checked, voters will need an access code to enter this election room.
+                  If checked, voters will need an access code to enter this voting room.
                 </FormDescription>
               </div>
             </FormItem>
@@ -293,7 +293,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
                   <Input placeholder="e.g., VOTE2024" {...field} suppressHydrationWarning={true} />
                 </FormControl>
                 <FormDescription>
-                  A unique code for voters to access this room. Minimum 4 characters.
+                  A unique code for voters to access this voting room. Minimum 4 characters.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -372,10 +372,10 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
            {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {initialData ? 'Updating Room...' : 'Creating Room...'}
+              {initialData ? 'Updating Voting Room...' : 'Creating Voting Room...'}
             </>
           ) : (
-            initialData ? 'Update Election Room' : 'Create Election Room'
+            initialData ? 'Update Voting Room' : 'Create Voting Room'
           )}
         </Button>
       </form>
@@ -538,5 +538,3 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
     </div>
   );
 }
-
-

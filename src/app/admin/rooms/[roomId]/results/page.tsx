@@ -62,7 +62,7 @@ export default async function ElectionResultsPage({ params }: { params: { roomId
         <div>
             <Button variant="outline" asChild className="mb-2 sm:mb-0 sm:mr-4">
             <Link href={`/admin/rooms/${room.id}/manage`}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Room
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Voting Room
             </Link>
             </Button>
             <h1 className="text-3xl font-bold font-headline mt-2">Results: {room.title}</h1>
