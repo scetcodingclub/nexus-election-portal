@@ -32,12 +32,9 @@ function StatusBadge({ status }: { status: ElectionRoom['status'] }) {
 function DashboardSkeleton() {
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <Skeleton className="h-10 w-72" />
-        <div className="flex gap-2">
-          <Skeleton className="h-10 w-56" />
-          <Skeleton className="h-10 w-56" />
-        </div>
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+        <Skeleton className="h-10 w-56" />
+        <Skeleton className="h-10 w-56" />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[1, 2, 3].map((i) => (
@@ -120,20 +117,17 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold font-headline">Voting Panel</h1>
-        <div className="flex gap-2">
-          <Button asChild variant="secondary">
-            <Link href="/admin/rooms/create">
-              <PenSquare className="mr-2 h-5 w-5" /> Create New Review Voting Room
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/admin/rooms/create">
-              <PlusCircle className="mr-2 h-5 w-5" /> Create New Voting Room
-            </Link>
-          </Button>
-        </div>
+      <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+        <Button asChild variant="secondary">
+          <Link href="/admin/rooms/create">
+            <PenSquare className="mr-2 h-5 w-5" /> Create New Review Room
+          </Link>
+        </Button>
+        <Button asChild>
+          <Link href="/admin/rooms/create">
+            <PlusCircle className="mr-2 h-5 w-5" /> Create New Voting Room
+          </Link>
+        </Button>
       </div>
 
       {electionRooms.length === 0 ? (
