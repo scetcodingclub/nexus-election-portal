@@ -34,14 +34,14 @@ function RoomTypeBadge({ type }: { type: ElectionRoom['roomType'] }) {
   if (type === 'review') {
     return (
       <Badge variant="outline" className="text-amber-600 border-amber-500/50">
-        <Star className="mr-1 h-3 w-3" /> Review
+        <Star className="mr-1 h-3 w-3" /> REVIEW
       </Badge>
     );
   }
   // Default to voting for existing or unspecified rooms
   return (
     <Badge variant="outline" className="text-primary border-primary/50">
-      <Vote className="mr-1 h-3 w-3" /> Voting
+      <Vote className="mr-1 h-3 w-3" /> VOTING
     </Badge>
   );
 }
@@ -95,9 +95,9 @@ export default function AdminDashboardPage() {
         } catch (err: any) {
           console.error("Failed to fetch election rooms:", err);
           if (err.code === 'permission-denied') {
-            setError("You do not have permission to view the dashboard. Please contact support if you believe this is an error.");
+            setError("You do not have permission to view the panel. Please contact support if you believe this is an error.");
           } else {
-            setError("An unexpected error occurred while loading the dashboard. Please try again later.");
+            setError("An unexpected error occurred while loading the panel. Please try again later.");
           }
         } finally {
           setLoading(false);
@@ -120,7 +120,7 @@ export default function AdminDashboardPage() {
           <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-4">
             <AlertTriangle className="h-10 w-10" />
           </div>
-          <CardTitle className="text-2xl">Error Loading Dashboard</CardTitle>
+          <CardTitle className="text-2xl">Error Loading Panel</CardTitle>
           <CardDescription>{error}</CardDescription>
         </CardHeader>
         <CardContent className="text-center">
@@ -167,10 +167,10 @@ export default function AdminDashboardPage() {
             <Card 
               key={room.id} 
               className={cn(
-                "flex flex-col hover:shadow-lg transition-shadow duration-300 border-2",
+                "flex flex-col hover:shadow-xl transition-all duration-300 border-2",
                  room.roomType === 'review' 
-                    ? "border-amber-500/20 hover:border-amber-500/50" 
-                    : "border-primary/20 hover:border-primary/50"
+                    ? "border-amber-500/40 hover:border-amber-500/60 bg-amber-500/5" 
+                    : "border-primary/40 hover:border-primary/60 bg-primary/5"
               )}
             >
               <CardHeader>

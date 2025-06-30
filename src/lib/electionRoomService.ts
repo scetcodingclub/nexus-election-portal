@@ -24,6 +24,7 @@ export async function getElectionRooms(): Promise<ElectionRoom[]> {
         positions: [],
         createdAt: new Date().toISOString(),
         status: 'pending' as ElectionRoom['status'],
+        roomType: 'voting',
       };
     }
 
@@ -71,6 +72,7 @@ export async function getElectionRooms(): Promise<ElectionRoom[]> {
       createdAt: createdAt,
       updatedAt: updatedAt,
       status: (data.status as ElectionRoom['status']) || 'pending',
+      roomType: data.roomType || 'voting',
     };
   });
 }
@@ -122,7 +124,7 @@ export async function getElectionRoomById(roomId: string): Promise<ElectionRoom 
 
   return {
     id: docSnap.id,
-    title: data.title || "Untitled Election Room",
+    title: data.title || "Untitled Voting Room",
     description: data.description || "No description.",
     isAccessRestricted: data.isAccessRestricted === true, // Ensure boolean
     accessCode: data.accessCode || undefined,
@@ -130,6 +132,7 @@ export async function getElectionRoomById(roomId: string): Promise<ElectionRoom 
     createdAt: createdAt,
     updatedAt: updatedAt,
     status: (data.status as ElectionRoom['status']) || 'pending',
+    roomType: data.roomType || 'voting',
   };
 }
 
@@ -179,7 +182,7 @@ export async function recordUserVote(roomId: string, userEmail: string, votes: R
     const electionRoomSnap = await transaction.get(electionRoomRef);
 
     if (!electionRoomSnap.exists()) {
-      throw new Error("Election room not found!");
+      throw new Error("Voting room not found!");
     }
 
     const roomData = electionRoomSnap.data() as DocumentData;
@@ -221,13 +224,13 @@ export async function verifyRoomAccess(formData: FormData): Promise<{ success: b
   const accessCode = formData.get('accessCode') as string;
 
   if (!roomId || roomId.trim() === '') {
-      return { success: false, message: "Please enter an Election Room ID." };
+      return { success: false, message: "Please enter a Voting Room ID." };
   }
 
   const room = await getElectionRoomById(roomId.trim());
   
   if (!room) {
-      return { success: false, message: "The Election Room ID you entered is invalid or the room does not exist." };
+      return { success: false, message: "The Voting Room ID you entered is invalid or the room does not exist." };
   }
 
   if (room.isAccessRestricted) {
