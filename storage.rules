@@ -1,22 +1,12 @@
-rules_version = '2';
 
+rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Match the path where candidate images are stored.
-    // This path must match the one used in the ElectionRoomForm.tsx component.
-    match /candidate-images/{imageId} {
-      
-      // Allow anyone to read the images.
-      // This is necessary for voters to see candidate photos on the ballot.
-      allow read: if true;
-      
-      // Only allow authenticated users (admins) to upload, update, or delete images.
-      // This prevents unauthorized users from modifying candidate photos.
-      allow write: if request.auth != null &&
-                      // Optional: Add file size validation (e.g., max 5MB)
-                      request.resource.size < 5 * 1024 * 1024 &&
-                      // Optional: Add content type validation to ensure it's an image
-                      request.resource.contentType.matches('image/.*');
+    // Allow public read access to all files.
+    // This is needed for candidate images to be visible to everyone.
+    match /{allPaths=**} {
+      allow read;
+      allow write: if request.auth != null; // Only authenticated users can upload files.
     }
   }
 }
