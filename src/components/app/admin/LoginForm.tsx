@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { signInWithEmailAndPassword, AuthError } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
 import Link from "next/link";
@@ -164,14 +164,17 @@ export default function LoginForm() {
                 Forgot Password?
             </Link>
         </div>
-        <Button type="submit" className="w-full pt-6" disabled={isLoading} suppressHydrationWarning={true}>
+        <Button type="submit" size="lg" className="w-full" disabled={isLoading} suppressHydrationWarning={true}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Logging in...
             </>
           ) : (
-            "Login"
+            <>
+              Login
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </>
           )}
         </Button>
       </form>
