@@ -1,20 +1,44 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Election rooms are public to read, but only authenticated users (admins) can write.
     match /electionRooms/{roomId} {
-      allow read;
-      allow create, update, delete: if request.auth != null;
+      // Allow public read of a single room's data for voting.
+      allow get: if true;
+      // Allow authenticated users (admins) to list all rooms for their panel.
+      allow list: if request.auth != null;
+
+      // Allow authenticated users to create and delete rooms.
+      allow create, delete: if request.auth != null;
+      
+      // Allow updates under two conditions:
+      // 1. The user is authenticated (an admin making general changes).
+      // 2. An unauthenticated user is submitting a vote. In this case, we ONLY
+      //    allow the 'positions' (for vote counts) and 'updatedAt' fields to be changed.
+      //    This is a necessary security constraint for the client-side voting logic.
+      allow update: if request.auth != null || 
+                      (request.auth == null && 
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['positions', 'updatedAt']));
+      
+      match /voters/{voterId} {
+        // Allow anyone to check if they've voted using get(). This is required for the app flow.
+        allow get: if true;
+        
+        // Allow authenticated users (admins) to see the full list of voters.
+        allow list: if request.auth != null;
+
+        // Anyone can create a vote record to submit their ballot.
+        allow create: if true;
+
+        // Disallow updates and deletes on vote records to prevent tampering.
+        allow update, delete: if false;
+      }
     }
 
-    // Voters subcollection:
-    // Anyone can create their own vote record (prevents double voting).
-    // Only authenticated users (admins) can read the list of who has voted.
-    match /electionRooms/{roomId}/voters/{userEmail} {
-      allow read, delete: if request.auth != null;
-      allow create: if true;
+    // By default, deny access to all other collections.
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
