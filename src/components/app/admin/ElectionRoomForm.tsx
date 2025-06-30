@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -149,7 +150,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       description: values.description,
       isAccessRestricted: values.isAccessRestricted,
       positions: firestoreReadyPositions,
-      roomType: 'voting', // Explicitly set type for voting rooms
+      roomType: initialData?.roomType || 'voting', // Preserve room type
       status: values.status || 'pending', // Ensure status is always set
     };
 
@@ -216,7 +217,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           name="title"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Voting Title</FormLabel>
+              <FormLabel>Title</FormLabel>
               <FormControl>
                 <Input placeholder="e.g., Annual Student Body Election" {...field} suppressHydrationWarning={true} />
               </FormControl>
@@ -231,40 +232,70 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea placeholder="Provide a brief description of the election." {...field} rows={4} suppressHydrationWarning={true} />
+                <Textarea placeholder="Provide a brief description of the event." {...field} rows={4} suppressHydrationWarning={true} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {initialData && ( 
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Election Status</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value} >
+        {initialData && (
+          initialData.roomType === 'review' ? (
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">
+                      {field.value === 'active' ? 'Room is Active' : 'Room is Inactive'}
+                    </FormLabel>
+                    <FormDescription>
+                      Turn this on to allow reviews. Turning it off will close the room.
+                    </FormDescription>
+                  </div>
                   <FormControl>
-                    <SelectTrigger suppressHydrationWarning={true}>
-                      <SelectValue placeholder="Select election status" />
-                    </SelectTrigger>
+                    <Switch
+                      checked={field.value === 'active'}
+                      onCheckedChange={(checked) => {
+                        const newStatus = checked ? 'active' : 'closed';
+                        field.onChange(newStatus);
+                      }}
+                      aria-label="Room Status Toggle"
+                    />
                   </FormControl>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending (Not yet open for voting)</SelectItem>
-                    <SelectItem value="active">Active (Open for voting)</SelectItem>
-                    <SelectItem value="closed">Closed (Voting has ended)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormDescription>
-                  Manage the current state. Set to 'Active' to start the election and allow voting.
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                </FormItem>
+              )}
+            />
+          ) : (
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Election Status</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} >
+                    <FormControl>
+                      <SelectTrigger suppressHydrationWarning={true}>
+                        <SelectValue placeholder="Select election status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending (Not yet open for voting)</SelectItem>
+                      <SelectItem value="active">Active (Open for voting)</SelectItem>
+                      <SelectItem value="closed">Closed (Voting has ended)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Manage the current state. Set to 'Active' to start the election and allow voting.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )
         )}
+
 
         <FormField
           control={form.control}
@@ -277,7 +308,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
               <div className="space-y-1 leading-none">
                 <FormLabel>Restrict Access?</FormLabel>
                 <FormDescription>
-                  If checked, voters will need an access code to enter this voting room.
+                  If checked, participants will need an access code to enter this room.
                 </FormDescription>
               </div>
             </FormItem>
@@ -294,7 +325,7 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
                   <Input placeholder="e.g., VOTE2024" {...field} suppressHydrationWarning={true} />
                 </FormControl>
                 <FormDescription>
-                  A unique code for voters to access this voting room. Minimum 4 characters.
+                  A unique code for participants to access this room. Minimum 4 characters.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -340,7 +371,12 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
                     </FormItem>
                   )}
                 />
-                <CandidateFields positionIndex={positionIndex} form={form} control={form.control} />
+                <CandidateFields 
+                  positionIndex={positionIndex} 
+                  form={form} 
+                  control={form.control}
+                  roomType={initialData?.roomType}
+                />
               </CardContent>
             </Card>
           ))}
@@ -373,10 +409,10 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
            {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {initialData ? 'Updating Voting Room...' : 'Creating Voting Room...'}
+              {initialData ? 'Updating Room...' : 'Creating Room...'}
             </>
           ) : (
-            initialData ? 'Update Voting Room' : 'Create Voting Room'
+            initialData ? 'Update Room' : 'Create Room'
           )}
         </Button>
       </form>
@@ -389,9 +425,10 @@ interface CandidateFieldsProps {
   positionIndex: number;
   control: any; 
   form: any; 
+  roomType?: ElectionRoom['roomType'];
 }
 
-function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps) {
+function CandidateFields({ positionIndex, control, form, roomType }: CandidateFieldsProps) {
   const { fields, append, remove } = useFieldArray({
     control,
     name: `positions.${positionIndex}.candidates`,
@@ -435,59 +472,64 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
   
   const { formState: { errors } } = form; 
   const candidateErrors = errors.positions?.[positionIndex]?.candidates;
-
+  
+  const candidatesToRender = roomType === 'review' ? fields.slice(0, 1) : fields;
 
   return (
     <div className="space-y-6 pl-4 border-l-2 border-primary/20">
-      <h4 className="text-sm font-medium text-muted-foreground">Candidates for this position:</h4>
-      {fields.map((candidateItem, candidateIndex) => { // candidateItem.id IS the stable RHF field ID
+      <h4 className="text-sm font-medium text-muted-foreground">
+        {roomType === 'review' ? "Person to be Reviewed:" : "Candidates for this position:"}
+      </h4>
+      {candidatesToRender.map((candidateItem, candidateIndex) => { // candidateItem.id IS the stable RHF field ID
         const currentImageUrl = form.watch(`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`);
         // Use RHF's stable candidateItem.id for generating a unique ID for the file input
         const uniqueFileIdForInput = isClientMounted ? `file-upload-${candidateItem.id}` : undefined;
 
         return (
           <div key={candidateItem.id} className="flex flex-col sm:flex-row items-start gap-4 group/candidate p-3 border rounded-md bg-background/50">
-            <div className="flex-shrink-0 w-full sm:w-auto">
-              <FormLabel className="text-xs">Candidate Image</FormLabel>
-              <div className="mt-1 w-28 h-28 relative border rounded-md overflow-hidden bg-muted flex items-center justify-center">
-                {uploadingStates[candidateItem.id] && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-                    <Loader2 className="h-8 w-8 animate-spin text-white" />
-                  </div>
-                )}
-                {currentImageUrl ? (
-                  <Image
-                    src={currentImageUrl}
-                    alt={`Candidate ${candidateIndex + 1} image`}
-                    width={112}
-                    height={112}
-                    className="object-cover w-full h-full"
-                  />
-                ) : (
-                  <div className="text-muted-foreground flex flex-col items-center" data-ai-hint="person portrait">
-                    <ImageIcon className="h-10 w-10" />
-                    <span className="text-xs mt-1">No Image</span>
-                  </div>
-                )}
+            {roomType !== 'review' && (
+              <div className="flex-shrink-0 w-full sm:w-auto">
+                <FormLabel className="text-xs">Candidate Image</FormLabel>
+                <div className="mt-1 w-28 h-28 relative border rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                  {uploadingStates[candidateItem.id] && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                      <Loader2 className="h-8 w-8 animate-spin text-white" />
+                    </div>
+                  )}
+                  {currentImageUrl ? (
+                    <Image
+                      src={currentImageUrl}
+                      alt={`Candidate ${candidateIndex + 1} image`}
+                      width={112}
+                      height={112}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <div className="text-muted-foreground flex flex-col items-center" data-ai-hint="person portrait">
+                      <ImageIcon className="h-10 w-10" />
+                      <span className="text-xs mt-1">No Image</span>
+                    </div>
+                  )}
+                </div>
+                <Controller
+                  control={control}
+                  name={`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`}
+                  render={({ field }) => ( 
+                    <Input
+                      id={uniqueFileIdForInput} // Use client-side generated ID based on RHF's field.id
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, candidateItem.id, candidateIndex)}
+                      className="mt-2 text-xs h-8"
+                      disabled={uploadingStates[candidateItem.id]}
+                      suppressHydrationWarning={true} 
+                      // field.value (imageUrl string) is handled by RHF setValue, file input value is not directly controlled for files
+                    />
+                  )}
+                />
+                <FormMessage>{form.formState.errors.positions?.[positionIndex]?.candidates?.[candidateIndex]?.imageUrl?.message}</FormMessage>
               </div>
-               <Controller
-                control={control}
-                name={`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`}
-                render={({ field }) => ( 
-                  <Input
-                    id={uniqueFileIdForInput} // Use client-side generated ID based on RHF's field.id
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileChange(e, candidateItem.id, candidateIndex)}
-                    className="mt-2 text-xs h-8"
-                    disabled={uploadingStates[candidateItem.id]}
-                    suppressHydrationWarning={true} 
-                    // field.value (imageUrl string) is handled by RHF setValue, file input value is not directly controlled for files
-                  />
-                )}
-              />
-              <FormMessage>{form.formState.errors.positions?.[positionIndex]?.candidates?.[candidateIndex]?.imageUrl?.message}</FormMessage>
-            </div>
+            )}
 
             <div className="flex-grow space-y-3">
                 <FormField
@@ -495,9 +537,11 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
                 name={`positions.${positionIndex}.candidates.${candidateIndex}.name`}
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel className="text-xs">Candidate Name</FormLabel>
+                    <FormLabel className="text-xs">
+                      {roomType === 'review' ? "Name" : "Candidate Name"}
+                    </FormLabel>
                     <FormControl>
-                        <Input placeholder={`Candidate ${candidateIndex + 1} Name`} {...field} suppressHydrationWarning={true} />
+                        <Input placeholder={roomType === 'review' ? "Enter name" : `Candidate ${candidateIndex + 1} Name`} {...field} suppressHydrationWarning={true} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -505,7 +549,7 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
                 />
             </div>
 
-            {fields.length > 1 && (
+            {fields.length > 1 && roomType !== 'review' && (
               <Button
                 type="button"
                 variant="ghost"
@@ -521,16 +565,20 @@ function CandidateFields({ positionIndex, control, form }: CandidateFieldsProps)
           </div>
         );
       })}
-      <Button
-        type="button"
-        variant="link"
-        size="sm"
-        onClick={() => append({ id: generateClientSideId('cand'), name: "", imageUrl: "" })}
-        className="text-primary hover:text-primary/80 px-0"
-        suppressHydrationWarning={true}
-      >
-        <PlusCircle className="mr-1 h-4 w-4" /> Add Candidate
-      </Button>
+      
+      {roomType !== 'review' && (
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          onClick={() => append({ id: generateClientSideId('cand'), name: "", imageUrl: "" })}
+          className="text-primary hover:text-primary/80 px-0"
+          suppressHydrationWarning={true}
+        >
+          <PlusCircle className="mr-1 h-4 w-4" /> Add Candidate
+        </Button>
+      )}
+
       {typeof candidateErrors === 'string' && <p className="text-sm font-medium text-destructive">{candidateErrors}</p>}
       {candidateErrors?.root && typeof candidateErrors.root === 'object' && 'message' in candidateErrors.root && (
         <p className="text-sm font-medium text-destructive">{String(candidateErrors.root.message)}</p>
