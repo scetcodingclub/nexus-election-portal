@@ -36,7 +36,7 @@ export default function ElectionResultsPage() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const roomData = await getElectionRoomById(roomId);
+          const roomData = await getElectionRoomById(roomId, { withVoteCounts: true });
           if (!roomData) {
             notFound();
             return;

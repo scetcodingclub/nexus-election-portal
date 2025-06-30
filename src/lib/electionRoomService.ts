@@ -75,12 +75,16 @@ export async function getElectionRooms(): Promise<ElectionRoom[]> {
   });
 }
 
-export async function getElectionRoomById(roomId: string): Promise<ElectionRoom | null> {
+export async function getElectionRoomById(roomId: string, options: { withVoteCounts?: boolean } = {}): Promise<ElectionRoom | null> {
+  const { withVoteCounts = false } = options;
   const roomRef = doc(db, "electionRooms", roomId);
-  // Also fetch all the vote documents for this room to aggregate results
+
+  // By default, we only fetch the main room document.
+  // If `withVoteCounts` is true, we also fetch all vote documents to aggregate results.
+  // This is a protected operation that should only be done by an admin.
   const [docSnap, votesSnap] = await Promise.all([
     getDoc(roomRef),
-    getDocs(collection(db, "electionRooms", roomId, "votes"))
+    withVoteCounts ? getDocs(collection(db, "electionRooms", roomId, "votes")) : Promise.resolve(null)
   ]);
 
   if (!docSnap.exists()) {
@@ -88,11 +92,13 @@ export async function getElectionRoomById(roomId: string): Promise<ElectionRoom 
   }
   
   const voteCounts = new Map<string, number>();
-  votesSnap.forEach(voteDoc => {
-    const voteData = voteDoc.data();
-    const candidateId = voteData.candidateId;
-    voteCounts.set(candidateId, (voteCounts.get(candidateId) || 0) + 1);
-  });
+  if (votesSnap) {
+    votesSnap.forEach(voteDoc => {
+        const voteData = voteDoc.data();
+        const candidateId = voteData.candidateId;
+        voteCounts.set(candidateId, (voteCounts.get(candidateId) || 0) + 1);
+    });
+  }
 
   const data = docSnap.data();
   if (!data) return null; 
@@ -124,7 +130,7 @@ export async function getElectionRoomById(roomId: string): Promise<ElectionRoom 
                 id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
                 name: c?.name || "Unnamed Candidate",
                 imageUrl: c?.imageUrl || '',
-                // Overwrite voteCount with aggregated data. It's no longer stored on the room doc.
+                // Overwrite voteCount with aggregated data if available.
                 voteCount: voteCounts.get(c.id) || 0,
               }))
             : [],
