@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getElectionRoomById, getVotersForRoom } from "@/lib/electionRoomService";
-import { ArrowLeft, Users } from "lucide-react";
-import { notFound, useParams } from "next/navigation";
+import { ArrowLeft, Users, AlertTriangle } from "lucide-react";
+import { notFound, useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from 'date-fns';
 import { useEffect, useState } from "react";
@@ -53,6 +53,7 @@ function VoterListSkeleton() {
 
 export default function VoterListPage() {
   const params = useParams();
+  const router = useRouter();
   const roomId = params.roomId as string;
   
   const [room, setRoom] = useState<ElectionRoom | null>(null);
@@ -61,21 +62,29 @@ export default function VoterListPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId) {
+      setError("Room ID is missing.");
+      setLoading(false);
+      return;
+    };
     
-    // Authenticate first, then fetch data
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const roomData = await getElectionRoomById(roomId);
+          // Fetch room and voters data in parallel after confirming auth
+          const [roomData, votersData] = await Promise.all([
+            getElectionRoomById(roomId),
+            getVotersForRoom(roomId)
+          ]);
+
           if (!roomData) {
             notFound();
             return;
           }
+          
           setRoom(roomData);
-
-          const votersData = await getVotersForRoom(roomId);
           setVoters(votersData);
+
         } catch (err: any) {
           console.error("Firebase Error:", err);
           if (err.code === 'permission-denied') {
@@ -87,14 +96,12 @@ export default function VoterListPage() {
           setLoading(false);
         }
       } else {
-        // Not logged in, show error
-        setError("You must be logged in to view this page.");
-        setLoading(false);
+        router.push('/admin/login');
       }
     });
 
     return () => unsubscribe();
-  }, [roomId]);
+  }, [roomId, router]);
 
 
   if (loading) {
@@ -113,17 +120,20 @@ export default function VoterListPage() {
   if (error) {
      return (
         <div className="max-w-4xl mx-auto space-y-6">
-             <Button variant="outline" asChild>
+            <Button variant="outline" asChild>
                 <Link href={`/admin/rooms/${roomId}/manage`}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Voting Room
                 </Link>
             </Button>
             <Card className="shadow-xl border-destructive">
                 <CardHeader>
-                    <CardTitle className="text-destructive">Access Denied</CardTitle>
-                    <CardDescription>{error}</CardDescription>
+                  <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-4">
+                      <AlertTriangle className="h-10 w-10" />
+                  </div>
+                  <CardTitle className="text-destructive text-center">Access Denied</CardTitle>
+                  <CardDescription className="text-center">{error}</CardDescription>
                 </CardHeader>
-                 <CardContent>
+                 <CardContent className="text-center">
                     <Button asChild>
                         <Link href="/admin/login">Go to Login</Link>
                     </Button>
@@ -134,7 +144,6 @@ export default function VoterListPage() {
   }
 
   if (!room) {
-    // This case should be handled by the loading/error states, but as a fallback
     return notFound();
   }
 
