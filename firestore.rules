@@ -2,42 +2,40 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to check if the user is an admin (i.e., authenticated).
-    // In this app's security model, any authenticated user is an admin.
-    function isAdmin() {
+    // Helper function to check if a user is authenticated.
+    // This is the simplest form of "admin" check for this app's structure.
+    function isAuthed() {
       return request.auth != null;
     }
 
-    // Rules for the electionRooms collection
+    // Rules for the main collection of election rooms.
     match /electionRooms/{roomId} {
-      // ANYONE can read a single room's main document (title, description, etc.).
-      // This is required for voters to see the election details before voting.
+      // ANY authenticated user (an admin) can create, view, update, or delete an election room document.
+      allow read, write: if isAuthed();
+
+      // PUBLIC ACCESS RULES:
+      // Allow ANYONE (including anonymous users) to read a single election room document.
+      // This is necessary for the public voting pages to load the election title and description.
+      // It's secure because sensitive data is not stored on the room document itself.
       allow get: if true;
 
-      // ONLY ADMINS can list/query multiple rooms, create, update, or delete them.
-      allow list, create, update, delete: if isAdmin();
-
-      // Rules for the 'voters' subcollection (contains voter emails)
+      // Rules for the 'voters' subcollection, which tracks who has voted.
       match /voters/{userId} {
-        // ANYONE can check for the existence of their own voter record.
-        // This is necessary to prevent double voting.
-        allow get: if true;
+        // ANY authenticated user (an admin) can read the list of voters.
+        allow read: if isAuthed();
         
-        // ONLY ADMINS can list all voters in a room.
-        allow list, create, update, delete: if isAdmin();
-      }
-
-      // Rules for the 'votes' subcollection (contains individual vote records)
-      match /votes/{voteId} {
-        // ANYONE can create a new vote record. This is the core of casting a vote.
+        // ANYONE (including anonymous users) can create their own voter record.
+        // This is how a vote is registered and prevents double-voting.
         allow create: if true;
+      }
+      
+      // Rules for the 'votes' subcollection, which stores individual ballots.
+      match /votes/{voteId} {
+        // ANY authenticated user (an admin) can read the votes to tally results.
+        allow read: if isAuthed();
 
-        // ONLY ADMINS can read the vote records to tally results.
-        allow get, list: if isAdmin();
-        
-        // NO ONE can update or delete a vote once it's cast.
-        allow update, delete: if false;
+        // ANYONE (including anonymous users) can create a vote document.
+        allow create: if true;
       }
     }
   }
