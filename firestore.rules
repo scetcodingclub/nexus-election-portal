@@ -1,49 +1,36 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is a logged-in admin
+    // Helper function to check if the user is an admin (logged in)
     function isAdmin() {
-      return request.auth.uid != null;
+      return request.auth != null;
     }
 
-    // Rules for the main electionRooms collection
     match /electionRooms/{roomId} {
-      // Anyone can read the public-facing details of an election room
-      allow get: if true;
-      // Admins can list all rooms on their dashboard
+      // Allow admins to perform any action on election rooms.
+      // Allow anyone to read the main room document (but not subcollections by default).
+      allow read: if true;
+      allow write: if isAdmin();
+      
+      // Explicitly allow admins to list all rooms for the dashboard.
       allow list: if isAdmin();
-      // Only admins can create, update, or delete rooms
-      allow create, update, delete: if isAdmin();
 
-      // Rules for the 'voters' subcollection (tracks who has voted)
-      match /voters/{voterEmail} {
-        // Admins can read the full list of voters' emails.
-        allow list: if isAdmin();
-        
-        // Anyone can check if a SPECIFIC email has voted (for the "already voted" check).
-        // Admins can also get a single voter document.
-        allow get: if true; 
-
-        // Anyone can create their voter record once. The app's logic prevents overwrites.
+      match /votes/{voteId} {
+        // Only admins can read individual vote records.
+        // Anyone can create a new vote record as part of the voting transaction.
+        allow read: if isAdmin();
         allow create: if true;
-
-        // Only admins can modify or delete voter records (not currently used).
-        allow update, delete: if isAdmin();
+        allow update, delete: if false; // Votes are immutable
       }
 
-      // Rules for the 'votes' subcollection (stores individual anonymous votes)
-      match /votes/{voteId} {
-        // Only admins can list votes for aggregating results.
-        allow list: if isAdmin();
-        // No one can read a single, specific vote document to protect anonymity.
-        allow get: if false;
-        // Anyone can create a new vote (cast a ballot).
+      match /voters/{userId} {
+        // Admins can read the full list of who has voted.
+        // A user can create their own voter record during the voting process.
+        allow read: if isAdmin();
         allow create: if true;
-        // Votes are immutable and cannot be changed or deleted.
-        allow update, delete: if false;
+        allow update, delete: if false; // Voter records are immutable
       }
     }
   }
