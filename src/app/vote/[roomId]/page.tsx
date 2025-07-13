@@ -208,7 +208,6 @@ const GuidelinesScreen = ({
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
         setEmail(newEmail);
-        // Simple regex for email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         setIsEmailValid(emailRegex.test(newEmail));
     }
@@ -224,20 +223,43 @@ const GuidelinesScreen = ({
             <CardContent className="space-y-6">
                 <Alert variant="default" className="border-primary/30">
                     <Info className="h-4 w-4" />
-                    <AlertTitle>Rules & Guidelines</AlertTitle>
+                    <AlertTitle>⚠️ General Guidelines (Applicable to Both Rooms)</AlertTitle>
                     <AlertDescription>
-                       <ul className="list-disc pl-5 space-y-1 mt-2">
-                          <li>Please review each position and candidate carefully.</li>
-                          <li>Your submission is final and cannot be changed.</li>
+                       <ul className="list-disc pl-5 space-y-2 mt-2 text-sm">
+                          <li><span className="font-semibold">✅ Only authorized voters/reviewers are allowed</span> - your access has been granted based on your email.</li>
+                          <li><span className="font-semibold">❗ You can enter the room only once.</span> Make sure you’re ready before clicking “Start”.</li>
+                          <li><span className="font-semibold">🕐 Complete your review or vote in one sitting.</span> Refreshing or exiting may lock your session.</li>
+                          <li><span className="font-semibold">🧑‍⚖️ You are expected to maintain honesty and neutrality</span> while reviewing or voting.</li>
+                          <li><span className="font-semibold">❌ Sharing or discussing your vote or review</span> with others during the process is prohibited.</li>
+                          <li><span className="font-semibold">💬 Suggestions or doubts</span> must be raised with the Election Admin before entering.</li>
+                          <li><span className="font-semibold">📡 Stable internet connection is recommended</span> to avoid disconnection or loss of input.</li>
+                          <li><span className="font-semibold">🛑 Once submitted, no changes can be made</span> to your response.</li>
                        </ul>
                     </AlertDescription>
                 </Alert>
+
+                {room.roomType === 'voting' && (
+                  <Alert variant="default" className="border-green-500/30">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Voting Room – Specific Rules</AlertTitle>
+                    <AlertDescription>
+                       <ul className="list-disc pl-5 space-y-2 mt-2 text-sm">
+                          <li><span className="font-semibold">🗳️ You are here to cast your vote</span> — selecting who you support or oppose.</li>
+                          <li><span className="font-semibold">✋ Voting is binary:</span> Yes (Support) or No (Do not support).</li>
+                          <li><span className="font-semibold">🚫 Once you vote, you cannot review</span> the same person again.</li>
+                          <li><span className="font-semibold">📥 Every vote is final</span> and securely recorded in the election system.</li>
+                       </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+
                  <Alert variant="default" className="border-green-500/30">
                     <ShieldCheck className="h-4 w-4 text-green-600" />
                     <AlertTitle>Your Privacy is Protected</AlertTitle>
                     <AlertDescription>
                         To ensure fairness, we require your email to prevent multiple submissions. 
-                        However, your vote/review itself is **completely anonymous**. Your email will not be linked to your specific choices.
+                        However, your {room.roomType === 'review' ? 'review' : 'vote'} itself is **completely anonymous**. Your email will not be linked to your specific choices.
                     </AlertDescription>
                 </Alert>
 
