@@ -233,20 +233,22 @@ export default function AdminDashboardPage() {
               )}
             >
               <CardHeader>
-                 <div className="flex justify-between items-start gap-2">
-                  <CardTitle className="text-xl font-headline mb-1 flex-grow">{room.title}</CardTitle>
-                  <div className="flex-shrink-0 flex flex-col items-end gap-2">
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={room.status} />
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => openDeleteDialog(room)}>
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Delete Room</span>
-                      </Button>
+                <div className="flex justify-between items-start gap-4">
+                    <div className="flex-grow">
+                        <CardTitle className="text-xl font-headline mb-1 line-clamp-2">{room.title}</CardTitle>
+                        <CardDescription className="text-sm line-clamp-2">{room.description}</CardDescription>
                     </div>
-                    <RoomTypeBadge type={room.roomType} />
-                  </div>
+                    <div className="flex-shrink-0">
+                         <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => openDeleteDialog(room)}>
+                            <Trash2 className="h-4 w-4" />
+                            <span className="sr-only">Delete Room</span>
+                        </Button>
+                    </div>
                 </div>
-                <CardDescription className="text-sm line-clamp-2">{room.description}</CardDescription>
+                <div className="flex items-center gap-2 pt-2">
+                    <StatusBadge status={room.status} />
+                    <RoomTypeBadge type={room.roomType} />
+                </div>
               </CardHeader>
               <CardContent className="flex-grow space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center">
