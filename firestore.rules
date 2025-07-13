@@ -4,45 +4,50 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check for admin authentication
+    // Helper function to check if a user is an authenticated admin
     function isAdmin() {
       return request.auth != null;
     }
 
     // Rules for the electionRooms collection
     match /electionRooms/{roomId} {
-      // Admins can do anything
+      // Admins have full access to election room documents
       allow read, write, delete: if isAdmin();
-
-      // Non-admins (public participants) can read the room data
+      
+      // Public users can only read the main room document
       allow get: if !isAdmin();
 
       // Rules for the 'voters' subcollection
       match /voters/{voterId} {
-        // Admins can do anything
+        // Admins have full access
         allow read, write: if isAdmin();
         
-        // Non-admins can get, create, and update their own voter document
-        // This is crucial for tracking "in_room" and "completed" status
-        allow get, create, update: if !isAdmin();
+        // Public users can create and update their own voter status
+        allow create, update: if !isAdmin();
       }
 
       // Rules for the 'votes' subcollection
       match /votes/{voteId} {
         // Admins can read votes
         allow read: if isAdmin();
-        
-        // Non-admins can create votes (i.e., submit a ballot)
-        allow create: if !isAdmin();
-      }
 
+        // Public users can only create (submit) votes
+        allow create: if !isAdmin();
+        
+        // No one can update or delete specific votes to ensure integrity
+        allow update, delete: if false;
+      }
+      
       // Rules for the 'reviews' subcollection
       match /reviews/{reviewId} {
-        // Admins can read reviews
+         // Admins can read reviews
         allow read: if isAdmin();
-        
-        // Non-admins can create reviews
+
+        // Public users can only create (submit) reviews
         allow create: if !isAdmin();
+        
+        // No one can update or delete specific reviews
+        allow update, delete: if false;
       }
     }
   }
