@@ -22,14 +22,15 @@ const StarRating = ({
 
   const handleStarClick = (index: number) => {
     if (disabled) return;
-    const currentClickedValue = index + 1;
-    // If clicking the same star that is already selected, toggle between half and full
-    if (rating === currentClickedValue) {
-      onRatingChange(currentClickedValue - 0.5);
-    } else if (rating === currentClickedValue - 0.5) {
-      onRatingChange(currentClickedValue);
-    } else {
-      onRatingChange(currentClickedValue);
+    const clickedStarValue = index + 1;
+
+    // If clicking the same star that represents the current half-star rating
+    if (rating === clickedStarValue - 0.5) {
+      onRatingChange(clickedStarValue); // Upgrade to full star
+    } 
+    // If clicking a star that is already fully selected (or any other case)
+    else {
+      onRatingChange(clickedStarValue - 0.5); // Default to half star on first/new click
     }
   };
 
@@ -39,15 +40,21 @@ const StarRating = ({
         const starValue = index + 1;
         const displayRating = hoverRating || rating;
         
-        let isFull = displayRating >= starValue;
-        let isHalf = displayRating >= starValue - 0.5 && displayRating < starValue;
+        const isFull = displayRating >= starValue;
+        const isHalf = displayRating === starValue - 0.5;
 
         return (
           <button
             key={index}
             type="button"
             onClick={() => handleStarClick(index)}
-            onMouseEnter={() => !disabled && setHoverRating(starValue)}
+            onMouseEnter={() => !disabled && setHoverRating(starValue - 0.5)}
+            onMouseMove={(e) => {
+              if (disabled) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const isOverHalf = (e.clientX - rect.left) > rect.width / 2;
+              setHoverRating(index + (isOverHalf ? 1 : 0.5));
+            }}
             disabled={disabled}
             className={cn(
               "p-1 transition-transform duration-200",
