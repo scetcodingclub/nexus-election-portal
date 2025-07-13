@@ -59,7 +59,7 @@ const VotingPositionCard = ({
 }) => (
   <Card key={position.id}>
     <CardHeader>
-      <CardTitle>{position.title}</CardTitle>
+      <CardTitle className="text-xl sm:text-2xl">{position.title}</CardTitle>
       <CardDescription>Select one candidate for this position.</CardDescription>
     </CardHeader>
     <CardContent className="space-y-4">
@@ -70,7 +70,7 @@ const VotingPositionCard = ({
             key={candidate.id}
             variant="outline"
             className={cn(
-              "w-full h-auto p-4 justify-start text-left flex items-center gap-4 transition-all",
+              "w-full h-auto p-3 sm:p-4 justify-start text-left flex items-center gap-4 transition-all",
               isSelected && "border-primary ring-2 ring-primary bg-primary/5"
             )}
             onClick={() => onVote(candidate.id)}
@@ -87,10 +87,10 @@ const VotingPositionCard = ({
               alt={candidate.name}
               width={56}
               height={56}
-              className="rounded-full object-cover w-14 h-14"
+              className="rounded-full object-cover w-12 h-12 sm:w-14 sm:h-14"
               data-ai-hint="person portrait"
             />
-            <span className="font-semibold text-lg flex-grow">{candidate.name}</span>
+            <span className="font-semibold text-base sm:text-lg flex-grow">{candidate.name}</span>
           </Button>
         );
       })}
@@ -120,7 +120,7 @@ const SingleCandidatePositionCard = ({
   return (
     <Card key={position.id}>
       <CardHeader>
-        <CardTitle>{position.title}</CardTitle>
+        <CardTitle className="text-xl sm:text-2xl">{position.title}</CardTitle>
         <CardDescription>Click the card to vote for this candidate, or click again to abstain.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -128,7 +128,7 @@ const SingleCandidatePositionCard = ({
           key={candidate.id}
           variant="outline"
           className={cn(
-            "w-full h-auto p-4 justify-start text-left flex items-center gap-4 transition-all",
+            "w-full h-auto p-3 sm:p-4 justify-start text-left flex items-center gap-4 transition-all",
             isVotedFor && "border-green-600 ring-2 ring-green-600 bg-green-600/5"
           )}
           onClick={handleToggleVote}
@@ -145,10 +145,10 @@ const SingleCandidatePositionCard = ({
               alt={candidate.name}
               width={56}
               height={56}
-              className="rounded-full object-cover w-14 h-14"
+              className="rounded-full object-cover w-12 h-12 sm:w-14 sm:h-14"
               data-ai-hint="person portrait"
           />
-          <span className="font-semibold text-lg flex-grow">{candidate.name}</span>
+          <span className="font-semibold text-base sm:text-lg flex-grow">{candidate.name}</span>
         </Button>
       </CardContent>
     </Card>
@@ -167,24 +167,26 @@ const ReviewPositionCard = ({
 }) => (
   <Card key={position.id}>
     <CardHeader>
-      <CardTitle>{position.title}: {position.candidates[0]?.name}</CardTitle>
+      <CardTitle className="text-xl sm:text-2xl">{position.title}: {position.candidates[0]?.name}</CardTitle>
       <CardDescription>Provide your feedback and rating.</CardDescription>
     </CardHeader>
     <CardContent className="space-y-6">
       <div>
-        <Label className="mb-2 block">Rating</Label>
+        <Label className="mb-2 block text-center sm:text-left">Rating</Label>
         <div className="flex flex-col items-center gap-2">
             <StarRating rating={selection.rating} onRatingChange={(rating) => onSelectionChange({ rating })} />
             <span className="font-bold text-lg w-24 text-center bg-muted rounded-md py-1">{selection.rating} / 5</span>
         </div>
       </div>
       <div>
-        <Label>Feedback</Label>
+        <Label htmlFor={`feedback-${position.id}`}>Feedback</Label>
         <Textarea 
+          id={`feedback-${position.id}`}
           placeholder="Enter your detailed feedback here..." 
           className="mt-2"
           value={selection.feedback}
           onChange={(e) => onSelectionChange({ feedback: e.target.value })}
+          rows={5} // More rows for better mobile experience
         />
       </div>
     </CardContent>
@@ -345,12 +347,12 @@ export default function RoomPreviewPage() {
 
 
   return (
-    <div className="bg-muted/40 p-4 sm:p-8 rounded-lg">
+    <div className="bg-muted/40 p-4 sm:p-6 lg:p-8 rounded-lg">
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="text-center">
             <p className="text-primary font-semibold mb-2">PREVIEW MODE</p>
-            <h1 className="text-4xl font-bold font-headline">{room.title}</h1>
-            <p className="text-muted-foreground mt-2">{room.description}</p>
+            <h1 className="text-3xl sm:text-4xl font-bold font-headline">{room.title}</h1>
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">{room.description}</p>
         </div>
         
         <div className="space-y-3">
@@ -368,7 +370,7 @@ export default function RoomPreviewPage() {
             <Button variant="outline" onClick={handleBack} disabled={currentPositionIndex === 0}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
-            <span>
+            <span className="flex-shrink-0">
                 {hasMadeSelection() && <Check className="h-6 w-6 text-green-500" />}
             </span>
             {!isLastPosition ? (
@@ -396,4 +398,6 @@ export default function RoomPreviewPage() {
     </div>
   );
 }
+    
+
     
