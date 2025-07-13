@@ -14,13 +14,13 @@ import { db } from '@/lib/firebaseClient';
 import { doc, setDoc, Timestamp } from 'firebase/firestore';
 import jwt from 'jsonwebtoken';
 
-export const SendInviteInputSchema = z.object({
+const SendInviteInputSchema = z.object({
   roomId: z.string().describe("The ID of the election room."),
   email: z.string().email().describe("The email address of the voter to invite."),
 });
 export type SendInviteInput = z.infer<typeof SendInviteInputSchema>;
 
-export const SendInviteOutputSchema = z.object({
+const SendInviteOutputSchema = z.object({
   success: z.boolean(),
   message: z.string(),
   inviteLink: z.string().url(),
@@ -79,5 +79,4 @@ const sendInviteFlow = ai.defineFlow(
     }
   }
 );
-
     
