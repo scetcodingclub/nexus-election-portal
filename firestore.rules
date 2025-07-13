@@ -4,50 +4,45 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if a user is an authenticated admin
+    // Helper function to check if a user is an authenticated admin.
     function isAdmin() {
       return request.auth != null;
     }
 
-    // Rules for the electionRooms collection
+    // Match all documents in the electionRooms collection.
     match /electionRooms/{roomId} {
-      // Admins have full access to election room documents
+      // Admins can do anything.
       allow read, write, delete: if isAdmin();
       
-      // Public users can only read the main room document
+      // Public users can read the main room data to participate.
       allow get: if !isAdmin();
 
-      // Rules for the 'voters' subcollection
+      // Match documents in the 'voters' subcollection (e.g., /electionRooms/{roomId}/voters/{email})
       match /voters/{voterId} {
-        // Admins have full access
-        allow read, write: if isAdmin();
+        // Admins can do anything.
+        allow read, write, delete: if isAdmin();
         
-        // Public users can create and update their own voter status
+        // Public users can create and update their OWN voter status document.
+        // This is crucial for tracking "in_room" and "completed" statuses.
         allow create, update: if !isAdmin();
       }
 
-      // Rules for the 'votes' subcollection
+      // Match documents in the 'votes' subcollection.
       match /votes/{voteId} {
-        // Admins can read votes
-        allow read: if isAdmin();
-
-        // Public users can only create (submit) votes
-        allow create: if !isAdmin();
+        // Admins can do anything.
+        allow read, write, delete: if isAdmin();
         
-        // No one can update or delete specific votes to ensure integrity
-        allow update, delete: if false;
+        // Public users can CREATE votes. They cannot read, update, or delete them.
+        allow create: if !isAdmin();
       }
       
-      // Rules for the 'reviews' subcollection
+      // Match documents in the 'reviews' subcollection.
       match /reviews/{reviewId} {
-         // Admins can read reviews
-        allow read: if isAdmin();
-
-        // Public users can only create (submit) reviews
-        allow create: if !isAdmin();
+        // Admins can do anything.
+        allow read, write, delete: if isAdmin();
         
-        // No one can update or delete specific reviews
-        allow update, delete: if false;
+        // Public users can CREATE reviews. They cannot read, update, or delete them.
+        allow create: if !isAdmin();
       }
     }
   }
