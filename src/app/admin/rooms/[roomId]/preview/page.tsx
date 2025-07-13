@@ -141,7 +141,15 @@ const SingleCandidatePositionCard = ({
 };
 
 
-const ReviewPositionCard = ({ position }: { position: Position }) => (
+const ReviewPositionCard = ({ 
+  position,
+  onRatingChange,
+  rating,
+}: { 
+  position: Position,
+  onRatingChange: (rating: number) => void,
+  rating: number,
+}) => (
   <Card key={position.id}>
     <CardHeader>
       <CardTitle>{position.title}: {position.candidates[0]?.name}</CardTitle>
@@ -151,8 +159,8 @@ const ReviewPositionCard = ({ position }: { position: Position }) => (
       <div>
         <Label className="mb-2 block">Rating</Label>
         <div className="flex flex-col items-center gap-2">
-            <StarRating rating={3.5} onRatingChange={() => {}} disabled />
-            <span className="font-bold text-lg w-20 text-center bg-muted rounded-md py-1">3.5 / 5</span>
+            <StarRating rating={rating} onRatingChange={onRatingChange} />
+            <span className="font-bold text-lg w-24 text-center bg-muted rounded-md py-1">{rating} / 5</span>
         </div>
       </div>
       <div>
@@ -170,7 +178,7 @@ export default function RoomPreviewPage() {
   const [room, setRoom] = useState<ElectionRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
-  const [selections, setSelections] = useState<Record<string, string | null>>({});
+  const [selections, setSelections] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (roomId) {
@@ -190,10 +198,10 @@ export default function RoomPreviewPage() {
     }
   }, [roomId]);
   
-  const handleVote = (voteValue: string | null) => {
+  const handleSelection = (selectionValue: any) => {
     if (!room) return;
     const positionId = room.positions[currentPositionIndex].id;
-    setSelections(prev => ({ ...prev, [positionId]: voteValue }));
+    setSelections(prev => ({ ...prev, [positionId]: selectionValue }));
 
     // Automatically move to next position if not on the last one
     setTimeout(() => {
@@ -223,12 +231,42 @@ export default function RoomPreviewPage() {
     return notFound();
   }
     
-  const isVotingRoom = room.roomType !== 'review';
-  const progress = isVotingRoom ? ((currentPositionIndex + 1) / room.positions.length) * 100 : 100;
+  const progress = ((currentPositionIndex + 1) / room.positions.length) * 100;
   const currentPosition = room.positions[currentPositionIndex];
   const currentSelection = selections[currentPosition?.id] || null;
   const isLastPosition = currentPositionIndex === room.positions.length - 1;
-  const isSingleCandidatePosition = currentPosition?.candidates.length === 1;
+
+  const renderCurrentPositionCard = () => {
+    if (!currentPosition) return null;
+
+    if (room.roomType === 'review') {
+      return (
+        <ReviewPositionCard 
+          key={currentPosition.id} 
+          position={currentPosition}
+          rating={currentSelection || 0}
+          onRatingChange={handleSelection}
+        />
+      );
+    }
+
+    const isSingleCandidate = currentPosition.candidates.length === 1;
+    return isSingleCandidate ? (
+      <SingleCandidatePositionCard
+        key={currentPosition.id}
+        position={currentPosition}
+        onVote={handleSelection}
+        selection={currentSelection}
+      />
+    ) : (
+      <VotingPositionCard 
+        key={currentPosition.id} 
+        position={currentPosition}
+        onVote={handleSelection}
+        selection={currentSelection}
+      />
+    );
+  };
 
   return (
     <div className="bg-muted/40 p-4 sm:p-8 rounded-lg">
@@ -239,55 +277,36 @@ export default function RoomPreviewPage() {
             <p className="text-muted-foreground mt-2">{room.description}</p>
         </div>
         
-        {isVotingRoom && (
-            <div className="space-y-3">
-                <Progress value={progress} className="w-full h-3" />
-                <p className="text-center text-sm text-muted-foreground">
-                    Position {currentPositionIndex + 1} of {room.positions.length}
-                </p>
-            </div>
-        )}
+        <div className="space-y-3">
+            <Progress value={progress} className="w-full h-3" />
+            <p className="text-center text-sm text-muted-foreground">
+                Position {currentPositionIndex + 1} of {room.positions.length}
+            </p>
+        </div>
 
-        <div className="space-y-8">
-            {isVotingRoom ? (
-                isSingleCandidatePosition ? (
-                    <SingleCandidatePositionCard
-                        key={currentPosition.id}
-                        position={currentPosition}
-                        onVote={handleVote}
-                        selection={currentSelection}
-                    />
-                ) : (
-                    <VotingPositionCard 
-                        key={currentPosition.id} 
-                        position={currentPosition}
-                        onVote={handleVote}
-                        selection={currentSelection}
-                    />
-                )
+        <div className="space-y-8 min-h-[300px]">
+            {renderCurrentPositionCard()}
+        </div>
+        
+        <div className="flex justify-between items-center">
+            <Button variant="outline" onClick={handleBack} disabled={currentPositionIndex === 0}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+            <span>
+                {currentSelection && <Check className="h-6 w-6 text-green-500" />}
+            </span>
+            {!isLastPosition ? (
+                <Button variant="default" onClick={handleNext}>
+                    Next
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
             ) : (
-                room.positions.map(position => <ReviewPositionCard key={position.id} position={position} />)
+                // Render a placeholder to maintain layout consistency
+                <div className="w-[88px]"></div> 
             )}
         </div>
         
-        {isVotingRoom && (
-             <div className="flex justify-between items-center">
-                <Button variant="outline" onClick={handleBack} disabled={currentPositionIndex === 0}>
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back
-                </Button>
-                <span>
-                    {currentSelection && <Check className="h-6 w-6 text-green-500" />}
-                </span>
-                {!isLastPosition && (
-                    <Button variant="default" onClick={handleNext}>
-                        {currentPositionIndex === room.positions.length - 2 ? 'Finish & Review' : 'Next'} 
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                )}
-            </div>
-        )}
-        
-        {((isVotingRoom && isLastPosition) || !isVotingRoom) && (
+        {isLastPosition && (
             <Button size="lg" className="w-full" disabled>
             {room.roomType === 'review' ? (
                 <Send className="mr-2 h-5 w-5" />
@@ -301,5 +320,4 @@ export default function RoomPreviewPage() {
     </div>
   );
 }
-
     
