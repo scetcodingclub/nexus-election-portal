@@ -3,41 +3,46 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Define rules for the electionRooms collection
+
+    // Helper function to check for admin authentication
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    // Rules for the electionRooms collection
     match /electionRooms/{roomId} {
-      
-      // RULE 1: Allow anyone to read the main election room document.
-      // This is required for participants to see the candidates and positions.
-      allow read: if true;
+      // Admins can do anything
+      allow read, write, delete: if isAdmin();
 
-      // RULE 2: Allow authenticated admins to write/delete the main room document.
-      allow write, delete: if request.auth != null;
+      // Non-admins (public participants) can read the room data
+      allow get: if !isAdmin();
 
-      // RULE 3: Define rules for the 'voters' subcollection.
+      // Rules for the 'voters' subcollection
       match /voters/{voterId} {
-        // Allow anyone to create or update a document in the voters subcollection.
-        // This is necessary for tracking participant status ('in_room', 'completed').
-        allow create, update: if true;
+        // Admins can do anything
+        allow read, write: if isAdmin();
         
-        // Allow admins to read/delete voter records.
-        allow read, delete: if request.auth != null;
-      }
-      
-      // RULE 4: Define rules for the 'votes' subcollection.
-      match /votes/{voteId} {
-        // Allow anyone to create a vote document. This is the submission itself.
-        // Disallow reading, updating, or deleting to ensure anonymity and integrity.
-        allow create: if true;
-        allow read, update, delete: if request.auth != null;
+        // Non-admins can get, create, and update their own voter document
+        // This is crucial for tracking "in_room" and "completed" status
+        allow get, create, update: if !isAdmin();
       }
 
-      // RULE 5: Define rules for the 'reviews' subcollection.
+      // Rules for the 'votes' subcollection
+      match /votes/{voteId} {
+        // Admins can read votes
+        allow read: if isAdmin();
+        
+        // Non-admins can create votes (i.e., submit a ballot)
+        allow create: if !isAdmin();
+      }
+
+      // Rules for the 'reviews' subcollection
       match /reviews/{reviewId} {
-        // Allow anyone to create a review document.
-        // Disallow reading, updating, or deleting to ensure anonymity.
-        allow create: if true;
-        allow read, update, delete: if request.auth != null;
+        // Admins can read reviews
+        allow read: if isAdmin();
+        
+        // Non-admins can create reviews
+        allow create: if !isAdmin();
       }
     }
   }

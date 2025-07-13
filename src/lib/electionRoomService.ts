@@ -222,14 +222,10 @@ export async function recordParticipantEntry(
         await runTransaction(db, async (transaction) => {
             const voterDoc = await transaction.get(voterRef);
             if (voterDoc.exists()) {
-                // If they exist and have completed, deny re-entry.
                 if (voterDoc.data().status === 'completed') {
                     throw new Error("You have already completed your submission for this room.");
                 }
-                // If they exist but are 'in_room', allow them to continue (e.g., page refresh).
-                // No need to write anything new here, just let them pass.
             } else {
-                // First time entry, set status to 'in_room'
                 transaction.set(voterRef, {
                     status: 'in_room',
                     lastActivity: serverTimestamp()
@@ -249,44 +245,38 @@ export async function submitBallot(
   selections: Record<string, string | null> // positionId -> candidateId | null
 ): Promise<{ success: boolean; message: string }> {
   try {
-    await runTransaction(db, async (transaction) => {
-      const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
-      const voterSnap = await transaction.get(voterRef);
-      if (voterSnap.exists() && voterSnap.data().status === 'completed') {
-        throw new Error("You have already voted in this election.");
+    const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
+    const voterSnap = await getDoc(voterRef);
+    if (voterSnap.exists() && voterSnap.data().status === 'completed') {
+      return { success: false, message: "You have already voted in this election." };
+    }
+
+    const roomRef = doc(db, "electionRooms", roomId);
+    const roomSnap = await getDoc(roomRef);
+    if (!roomSnap.exists() || roomSnap.data().status !== 'active') {
+      return { success: false, message: "This election is not currently active." };
+    }
+
+    const votesPromises = [];
+    for (const positionId in selections) {
+      const candidateId = selections[positionId];
+      if (candidateId) {
+        const voteRef = collection(db, "electionRooms", roomId, "votes");
+        votesPromises.push(addDoc(voteRef, {
+          positionId,
+          candidateId,
+          voterEmail,
+          votedAt: serverTimestamp(),
+        }));
       }
+    }
+    await Promise.all(votesPromises);
 
-      const roomRef = doc(db, "electionRooms", roomId);
-      const roomSnap = await transaction.get(roomRef);
-      if (!roomSnap.exists() || roomSnap.data().status !== 'active') {
-        throw new Error("This election is not currently active.");
-      }
-
-      const batch = writeBatch(db);
-
-      // Record votes
-      for (const positionId in selections) {
-        const candidateId = selections[positionId];
-        if (candidateId) { // Only record actual votes, not abstentions
-          const voteRef = doc(collection(db, "electionRooms", roomId, "votes"));
-          batch.set(voteRef, {
-            positionId,
-            candidateId,
-            voterEmail, // Keep it anonymous at data level, but traceable if needed for integrity checks
-            votedAt: serverTimestamp(),
-          });
-        }
-      }
-
-      // Mark voter as having voted and update status to completed
-      batch.set(voterRef, {
-        status: 'completed',
-        lastActivity: serverTimestamp(),
-        votedAt: serverTimestamp(),
-      }, { merge: true });
-
-      await batch.commit();
-    });
+    await setDoc(voterRef, {
+      status: 'completed',
+      lastActivity: serverTimestamp(),
+      votedAt: serverTimestamp(),
+    }, { merge: true });
 
     return { success: true, message: "Your ballot has been successfully submitted." };
   } catch (error: any) {
@@ -301,52 +291,47 @@ export async function submitReview(
   selections: Record<string, { rating: number; feedback: string }>
 ): Promise<{ success: boolean; message: string }> {
   try {
-    await runTransaction(db, async (transaction) => {
-      const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
-      const voterSnap = await transaction.get(voterRef);
-      if (voterSnap.exists() && voterSnap.data().status === 'completed') {
-        throw new Error("You have already submitted a review for this room.");
+    const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
+    const voterSnap = await getDoc(voterRef);
+
+    if (voterSnap.exists() && voterSnap.data().status === 'completed') {
+      return { success: false, message: "You have already submitted a review for this room." };
+    }
+
+    const roomRef = doc(db, "electionRooms", roomId);
+    const roomSnap = await getDoc(roomRef);
+    if (!roomSnap.exists() || roomSnap.data().status !== 'active') {
+      return { success: false, message: "This review room is not currently active." };
+    }
+
+    const roomData = roomSnap.data();
+    const positions = roomData.positions || [];
+    
+    const reviewPromises = [];
+    for (const positionId in selections) {
+      const reviewData = selections[positionId];
+      const position = positions.find((p: any) => p.id === positionId);
+      const candidateId = position?.candidates[0]?.id;
+
+      if (candidateId) {
+        const reviewRef = collection(db, "electionRooms", roomId, "reviews");
+        reviewPromises.push(addDoc(reviewRef, {
+          positionId,
+          candidateId,
+          rating: reviewData.rating,
+          feedback: reviewData.feedback,
+          reviewerEmail: voterEmail,
+          reviewedAt: serverTimestamp(),
+        }));
       }
-
-      const roomRef = doc(db, "electionRooms", roomId);
-      const roomSnap = await transaction.get(roomRef);
-      if (!roomSnap.exists() || roomSnap.data().status !== 'active') {
-        throw new Error("This review room is not currently active.");
-      }
-
-      const batch = writeBatch(db);
-
-      // Record reviews
-      const roomData = roomSnap.data();
-      const positions = roomData.positions || [];
-
-      for (const positionId in selections) {
-        const reviewData = selections[positionId];
-        const position = positions.find((p: any) => p.id === positionId);
-        const candidateId = position?.candidates[0]?.id;
-
-        if (candidateId) {
-          const reviewRef = doc(collection(db, "electionRooms", roomId, "reviews"));
-          batch.set(reviewRef, {
-            positionId,
-            candidateId,
-            rating: reviewData.rating,
-            feedback: reviewData.feedback,
-            reviewerEmail: voterEmail,
-            reviewedAt: serverTimestamp(),
-          });
-        }
-      }
-
-      // Mark voter as having reviewed and set status to completed
-      batch.set(voterRef, {
-        status: 'completed',
-        lastActivity: serverTimestamp(),
-        votedAt: serverTimestamp(),
-      }, { merge: true });
-
-      await batch.commit();
-    });
+    }
+    await Promise.all(reviewPromises);
+    
+    await setDoc(voterRef, {
+      status: 'completed',
+      lastActivity: serverTimestamp(),
+      votedAt: serverTimestamp(),
+    }, { merge: true });
     
     return { success: true, message: "Your review has been successfully submitted." };
   } catch (error: any) {
@@ -354,5 +339,3 @@ export async function submitReview(
     return { success: false, message: error.message || "An unexpected error occurred while submitting your review." };
   }
 }
-
-    
