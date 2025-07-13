@@ -179,8 +179,8 @@ export default function VoterListPage() {
             Voter List for: {room.title}
           </CardTitle>
           <CardDescription>
-            This is a list of all individuals in the voter pool for this election. 
-            A total of {voters.length} voter(s) have been invited.
+            This is a list of all individuals who have participated in this election. 
+            A total of {voters.length} voter(s) have participated.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -209,7 +209,7 @@ export default function VoterListPage() {
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
-              <p>No voters have been invited to this election yet.</p>
+              <p>No voters have participated in this election yet.</p>
             </div>
           )}
         </CardContent>

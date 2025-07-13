@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle, PenSquare, Vote, Star, Trash2, Loader2 } from "lucide-react";
+import { PlusCircle, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle, PenSquare, Vote, Star, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
@@ -84,7 +84,6 @@ function DashboardSkeleton() {
             <CardFooter className="grid grid-cols-2 gap-2">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-9 w-full col-span-2 mt-2" />
             </CardFooter>
           </Card>
         ))}
@@ -271,11 +270,6 @@ export default function AdminDashboardPage() {
                 <Button variant="default" asChild className="w-full">
                   <Link href={`/admin/rooms/${room.id}/results`}>
                     <BarChart3 className="mr-2 h-4 w-4" /> Results
-                  </Link>
-                </Button>
-                 <Button variant="ghost" asChild className="w-full col-span-2 mt-2">
-                  <Link href={`/vote/${room.id}`} target="_blank" rel="noopener noreferrer">
-                    <Eye className="mr-2 h-4 w-4" /> Voter View
                   </Link>
                 </Button>
               </CardFooter>

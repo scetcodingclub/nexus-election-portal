@@ -10,12 +10,9 @@ import type { ElectionRoom } from "@/lib/types";
 
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, QrCode, BarChart3, Fingerprint, Users, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, BarChart3, AlertTriangle, Users } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import ShareableLinkDisplay from '@/components/app/admin/ShareableLinkDisplay';
-import Image from 'next/image'; 
 import Loading from './loading';
 
 
@@ -87,12 +84,6 @@ export default function ManageElectionRoomPage() {
     return notFound(); 
   }
 
-  // Use a relative path for the link to ensure it works in any environment.
-  // The full URL for the QR code will be resolved by the browser.
-  const voterPath = `/vote/${room.id}`;
-  const absoluteVoterLink = typeof window !== 'undefined' ? `${window.location.origin}${voterPath}` : '';
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(absoluteVoterLink)}`;
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
@@ -134,49 +125,6 @@ export default function ManageElectionRoomPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl font-headline">Access & Sharing</CardTitle>
-          <CardDescription>
-            Share this room with voters. The link and QR code will work correctly in this environment and when your app is deployed.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-           <Alert variant="default">
-            <Fingerprint className="h-4 w-4" />
-            <AlertTitle>Your Voting Room ID</AlertTitle>
-            <AlertDescription>
-              Voters will need this ID to access the voting room manually. It is also embedded in the shareable link and QR code.
-              <div className="mt-2">
-                <code className="text-sm bg-muted px-2 py-1 rounded font-mono break-all">
-                  {room.id}
-                </code>
-              </div>
-            </AlertDescription>
-          </Alert>
-          <ShareableLinkDisplay voterLink={voterPath} />
-          <Alert variant="default" className="border-primary/30">
-             <QrCode className="h-4 w-4" />
-            <AlertTitle>QR Code for Voters</AlertTitle>
-            <AlertDescription>
-              Voters can scan this QR code with their mobile devices to directly access the voting page.
-              <div className="mt-2 p-4 bg-muted rounded flex items-center justify-center">
-                 {absoluteVoterLink && (
-                  <Image 
-                      src={qrCodeUrl} 
-                      alt={`QR Code for election: ${room.title}`} 
-                      width={150} 
-                      height={150} 
-                      data-ai-hint="qr code election"
-                      className="rounded-md"
-                    />
-                 )}
-              </div>
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
     </div>
   );
 }
-

@@ -26,16 +26,9 @@ export interface ElectionRoom {
   roomType?: 'voting' | 'review';
 }
 
-export interface Vote {
-  positionId: string;
-  candidateId: string;
-}
-
 export interface Voter {
   email: string;
   status: 'invited' | 'waiting' | 'voting' | 'voted' | 'unknown';
   invitedAt?: string;
   votedAt?: string;
 }
-
-    

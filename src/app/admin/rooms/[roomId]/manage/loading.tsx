@@ -52,16 +52,6 @@ export default function Loading() {
           <Skeleton className="h-12 w-full" /> {/* Submit button */}
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-1/2" /> {/* Access & Sharing Title */}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Skeleton className="h-20 w-full" /> {/* Shareable Link Alert */}
-          <Skeleton className="h-40 w-full" /> {/* QR Code Alert */}
-        </CardContent>
-      </Card>
     </div>
   );
 }
