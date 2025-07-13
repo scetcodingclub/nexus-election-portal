@@ -21,10 +21,12 @@ export default function HeaderActions() {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
+  const [mounted, setMounted] = useState(false);
 
   const isAdminPage = pathname.startsWith('/admin');
 
   useEffect(() => {
+    setMounted(true);
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
@@ -43,7 +45,7 @@ export default function HeaderActions() {
   return (
     <>
       <ThemeToggle />
-      {isAdminPage && user && (
+      {mounted && isAdminPage && user && (
          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">

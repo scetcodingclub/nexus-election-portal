@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -14,6 +15,17 @@ import {
 
 export function ThemeToggle() {
   const { setTheme } = useTheme()
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    // On the server and during initial client render, render a placeholder or nothing
+    // to prevent hydration mismatch. A button placeholder keeps the layout consistent.
+    return <Button variant="ghost" size="icon" disabled></Button>
+  }
 
   return (
     <DropdownMenu>
