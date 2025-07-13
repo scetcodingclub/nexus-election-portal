@@ -1,15 +1,24 @@
 
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import Link from "next/link";
 import { ArrowRight, ShieldCheckIcon } from "lucide-react";
+import TypingAnimation from "@/components/app/TypingAnimation";
 
 export default function Home() {
+  const welcomeTexts = [
+    "Welcome to N.E.X.U.S Election Board",
+    "Secure & Transparent Voting",
+    "Your Voice, Your Vote"
+  ];
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] py-12">
-      <div className="text-center mb-12">
+      <div className="text-center mb-12 h-24">
         <h1 className="text-5xl font-bold font-headline mb-4 animate-fade-in-up">
-          Welcome to <span className="text-primary">N.E.X.U.S</span> Election Board
+          <TypingAnimation texts={welcomeTexts} />
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
           Securely manage elections and cast your votes with ease. Our platform ensures transparency and integrity for all your voting needs.
