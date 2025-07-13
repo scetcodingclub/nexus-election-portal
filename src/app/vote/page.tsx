@@ -9,7 +9,7 @@ import { ArrowLeft, ArrowRight, QrCode, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { verifyRoomAccess } from "@/lib/electionRoomService";
+import { verifyRoomAccess, checkUserHasVoted } from "@/lib/electionRoomService";
 import Link from "next/link";
 
 export default function VoterAccessPage() {
@@ -22,19 +22,43 @@ export default function VoterAccessPage() {
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    const result = await verifyRoomAccess(formData);
+    const roomId = formData.get('roomId') as string;
+    const email = formData.get('email') as string;
 
-    if (result.success && result.roomId) {
-      router.push(`/vote/${result.roomId}`);
-    } else {
+    // First, verify the room and access code
+    const accessResult = await verifyRoomAccess(formData);
+
+    if (!accessResult.success || !accessResult.roomId) {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: result.message,
+        description: accessResult.message,
       });
       setIsLoading(false);
+      return;
     }
-    // On success, we navigate away, so no need to set loading to false.
+    
+    // If room access is granted, check if the user has already voted
+    try {
+        const hasVoted = await checkUserHasVoted(accessResult.roomId, email);
+        if (hasVoted) {
+             router.push(`/vote/${accessResult.roomId}/thank-you?status=already_voted`);
+             return;
+        }
+
+        // If not voted, store email and proceed to the ballot page
+        localStorage.setItem(`voterEmail-${accessResult.roomId}`, email);
+        router.push(`/vote/${accessResult.roomId}/ballot`);
+
+    } catch(error) {
+        console.error("Error checking voter status:", error);
+        toast({
+            variant: "destructive",
+            title: "Verification Failed",
+            description: "Could not verify your voting status. Please try again.",
+        });
+        setIsLoading(false);
+    }
   };
 
   return (
@@ -51,12 +75,25 @@ export default function VoterAccessPage() {
               <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <CardTitle className="text-3xl font-headline">Voter Access</CardTitle>
-            <CardDescription>Enter the Voting Room ID. If the room is private, you will also need an access code.</CardDescription>
+            <CardDescription>Enter your details and the Room ID to cast your vote.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
+               <div>
+                <Label htmlFor="email" className="text-base">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="Enter your email address"
+                  className="mt-1 text-base md:text-sm"
+                  required
+                  aria-label="Email Address"
+                  suppressHydrationWarning={true}
+                />
+              </div>
               <div>
-                <Label htmlFor="roomId" className="text-base">Voting Room ID</Label>
+                <Label htmlFor="roomId" className="text-base">Room Id</Label>
                 <Input
                   id="roomId"
                   name="roomId"
@@ -64,7 +101,7 @@ export default function VoterAccessPage() {
                   placeholder="Enter Voting Room ID (e.g., NEXUS2024)"
                   className="mt-1 text-base md:text-sm"
                   required
-                  aria-label="Voting Room ID"
+                  aria-label="Room Id"
                   suppressHydrationWarning={true}
                 />
               </div>
@@ -92,19 +129,6 @@ export default function VoterAccessPage() {
                 )}
               </Button>
             </form>
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
-                  Or
-                </span>
-              </div>
-            </div>
-            <Button variant="outline" className="w-full" disabled> {/* QR Scan functionality is complex */}
-              <QrCode className="mr-2 h-4 w-4" /> Scan QR Code (Coming Soon)
-            </Button>
             <p className="text-xs text-center text-muted-foreground pt-4">
               If you received a direct link to an election, please use that link.
             </p>
