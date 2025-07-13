@@ -218,12 +218,19 @@ const GuidelinesScreen = ({
         setVotingRulesAcknowledged(prev => ({...prev, [rule]: !prev[rule]}));
     };
 
+    const initialReviewRulesState = { rule1: false, rule2: false, rule3: false, rule4: false };
+    const [reviewRulesAcknowledged, setReviewRulesAcknowledged] = useState(initialReviewRulesState);
+    const handleReviewCheckboxChange = (rule: keyof typeof reviewRulesAcknowledged) => {
+        setReviewRulesAcknowledged(prev => ({...prev, [rule]: !prev[rule]}));
+    };
+
     const allGeneralRulesChecked = Object.values(generalRulesAcknowledged).every(Boolean);
     const allVotingRulesChecked = Object.values(votingRulesAcknowledged).every(Boolean);
-    
-    const canProceed = room.roomType === 'voting'
-        ? isEmailValid && allGeneralRulesChecked && allVotingRulesChecked
-        : isEmailValid && allGeneralRulesChecked;
+    const allReviewRulesChecked = Object.values(reviewRulesAcknowledged).every(Boolean);
+
+    const canProceed = 
+        (room.roomType === 'voting' && isEmailValid && allGeneralRulesChecked && allVotingRulesChecked) ||
+        (room.roomType === 'review' && isEmailValid && allGeneralRulesChecked && allReviewRulesChecked);
 
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
@@ -285,6 +292,32 @@ const GuidelinesScreen = ({
                   </Alert>
                 )}
 
+                {room.roomType === 'review' && (
+                  <Alert variant="default" className="border-purple-500/30">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Reviewer Room – Specific Rules</AlertTitle>
+                    <AlertDescription>
+                       <ul className="space-y-3 mt-4 text-xs sm:text-sm">
+                          <li className="flex items-start gap-3">
+                             <Checkbox id="r-rule1" checked={reviewRulesAcknowledged.rule1} onCheckedChange={() => handleReviewCheckboxChange('rule1')} className="mt-0.5" />
+                             <label htmlFor="r-rule1" className="flex-1"><span className="font-semibold">🎯 You are here to provide feedback</span> on the candidates — not to elect.</label>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <Checkbox id="r-rule2" checked={reviewRulesAcknowledged.rule2} onCheckedChange={() => handleReviewCheckboxChange('rule2')} className="mt-0.5" />
+                            <label htmlFor="r-rule2" className="flex-1"><span className="font-semibold">⭐ You will rate candidates</span> using a star-based system (1–5).</label>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <Checkbox id="r-rule3" checked={reviewRulesAcknowledged.rule3} onCheckedChange={() => handleReviewCheckboxChange('rule3')} className="mt-0.5" />
+                            <label htmlFor="r-rule3" className="flex-1"><span className="font-semibold">🗣️ Honest, constructive written feedback</span> is encouraged. Be respectful and specific.</label>
+                          </li>
+                           <li className="flex items-start gap-3">
+                            <Checkbox id="r-rule4" checked={reviewRulesAcknowledged.rule4} onCheckedChange={() => handleReviewCheckboxChange('rule4')} className="mt-0.5" />
+                            <label htmlFor="r-rule4" className="flex-1"><span className="font-semibold">✅ Your review is confidential</span> and used only for evaluation purposes.</label>
+                          </li>
+                       </ul>
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                  <Alert variant="default" className="border-green-500/30">
                     <ShieldCheck className="h-4 w-4 text-green-600" />
@@ -368,6 +401,7 @@ export default function VotingPage() {
   }, [roomId]);
 
   const handleStart = async (email: string) => {
+    if (!room) return;
     setVoterEmail(email);
     const result = await recordParticipantEntry(roomId, email);
     if (result.success) {
@@ -506,10 +540,10 @@ export default function VotingPage() {
                 border-radius: 50%;
                 display: block;
                 stroke-width: 2;
-                stroke: #4caf50;
+                stroke: hsl(var(--primary));
                 stroke-miterlimit: 10;
                 margin: 10% auto;
-                box-shadow: inset 0px 0px 0px #4caf50;
+                box-shadow: inset 0px 0px 0px hsl(var(--primary));
                 animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
               }
               .checkmark__circle {
@@ -517,7 +551,7 @@ export default function VotingPage() {
                 stroke-dashoffset: 166;
                 stroke-width: 2;
                 stroke-miterlimit: 10;
-                stroke: #4caf50;
+                stroke: hsl(var(--primary));
                 fill: none;
                 animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
               }
@@ -542,7 +576,7 @@ export default function VotingPage() {
               }
               @keyframes fill {
                 100% {
-                  box-shadow: inset 0px 0px 0px 30px #4caf50;
+                  box-shadow: inset 0px 0px 0px 30px hsl(var(--primary));
                 }
               }
             `}</style>
