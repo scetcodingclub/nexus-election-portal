@@ -1,6 +1,6 @@
 
 import { db } from "@/lib/firebaseClient";
-import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc, updateDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import type { ElectionRoom, Voter } from '@/lib/types';
 
 export async function getElectionRooms(): Promise<ElectionRoom[]> {
@@ -169,15 +169,21 @@ export async function getVotersForRoom(roomId: string): Promise<Voter[]> {
 
   const voters = votersSnap.docs.map(doc => {
     const data = doc.data();
+    const lastActivity = data.lastActivity instanceof Timestamp 
+        ? data.lastActivity.toDate().toISOString() 
+        : data.lastActivity;
+    
     return {
       email: doc.id,
       status: data.status,
-      lastActivity: (data.lastActivity as Timestamp)?.toDate().toISOString(),
+      lastActivity: lastActivity,
+      votedAt: data.votedAt instanceof Timestamp ? data.votedAt.toDate().toISOString() : data.votedAt,
     };
   });
   
   return voters;
 }
+
 
 export async function deleteElectionRoom(roomId: string, passwordAttempt: string): Promise<{ success: boolean; message: string }> {
     const roomRef = doc(db, "electionRooms", roomId);
@@ -276,6 +282,7 @@ export async function submitBallot(
       batch.set(voterRef, {
         status: 'completed',
         lastActivity: serverTimestamp(),
+        votedAt: serverTimestamp(),
       }, { merge: true });
 
       await batch.commit();
@@ -335,6 +342,7 @@ export async function submitReview(
       batch.set(voterRef, {
         status: 'completed',
         lastActivity: serverTimestamp(),
+        votedAt: serverTimestamp(),
       }, { merge: true });
 
       await batch.commit();
@@ -346,3 +354,5 @@ export async function submitReview(
     return { success: false, message: error.message || "An unexpected error occurred while submitting your review." };
   }
 }
+
+    

@@ -72,10 +72,8 @@ export default function VoterListPage() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const [roomData, votersData] = await Promise.all([
-            getElectionRoomById(roomId),
-            getVotersForRoom(roomId)
-          ]);
+          const completedVoters = await getVotersForRoom(roomId);
+          const roomData = await getElectionRoomById(roomId);
 
           if (!roomData) {
             notFound();
@@ -83,7 +81,7 @@ export default function VoterListPage() {
           }
           
           setRoom(roomData);
-          setVoters(votersData);
+          setVoters(completedVoters.filter(v => v.status === 'completed'));
 
         } catch (err: any) {
           console.error("Firebase Error:", err);
@@ -160,8 +158,8 @@ export default function VoterListPage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <Button variant="outline" asChild>
-          <Link href={`/admin/dashboard`}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Panel
+          <Link href={`/admin/rooms/${room.id}/manage`}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage
           </Link>
         </Button>
       </div>
@@ -214,3 +212,5 @@ export default function VoterListPage() {
     </div>
   );
 }
+
+    

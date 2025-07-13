@@ -469,3 +469,5 @@ function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidate
     </div>
   );
 }
+
+    

@@ -30,4 +30,7 @@ export interface Voter {
   email: string;
   status: 'in_room' | 'completed';
   lastActivity?: string;
+  votedAt?: string;
 }
+
+    
