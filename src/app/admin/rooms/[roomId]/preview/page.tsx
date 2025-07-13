@@ -12,9 +12,10 @@ import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Send, ArrowRight, ArrowLeft } from "lucide-react";
+import { Check, Send, ArrowRight, ArrowLeft, ThumbsUp, ThumbsDown } from "lucide-react";
 import StarRating from "@/components/app/StarRating";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 
 function PreviewSkeleton() {
   return (
@@ -84,6 +85,62 @@ const VotingPositionCard = ({
   </Card>
 );
 
+const SingleCandidatePositionCard = ({
+  position,
+  onVote,
+  selection,
+}: {
+  position: Position;
+  onVote: (vote: string | null) => void;
+  selection: string | null;
+}) => {
+  const candidate = position.candidates[0];
+  const candidateId = candidate.id;
+  const isVotedFor = selection === candidateId;
+  const isAbstained = selection === 'abstain';
+
+  return (
+    <Card key={position.id}>
+      <CardHeader>
+        <CardTitle>{position.title}</CardTitle>
+        <CardDescription>You can vote for this candidate or abstain.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-center justify-between space-x-4 p-4 border rounded-md bg-muted/20">
+            <div className="flex-1 flex items-center gap-4">
+                <Image
+                    src={candidate.imageUrl || `https://placehold.co/100x100.png?text=${candidate.name.charAt(0)}`}
+                    alt={candidate.name}
+                    width={56}
+                    height={56}
+                    className="rounded-full object-cover w-14 h-14"
+                    data-ai-hint="person portrait"
+                />
+                <span className="font-semibold text-lg">{candidate.name}</span>
+            </div>
+        </div>
+        <div className="flex gap-4">
+            <Button
+                className={cn("w-full", isVotedFor && "ring-2 ring-green-500 ring-offset-2")}
+                variant={isVotedFor ? "default" : "outline"}
+                onClick={() => onVote(candidateId)}
+            >
+                <ThumbsUp className="mr-2" /> Vote For
+            </Button>
+            <Button
+                className={cn("w-full", isAbstained && "ring-2 ring-destructive ring-offset-2")}
+                variant={isAbstained ? "destructive" : "outline"}
+                onClick={() => onVote('abstain')}
+            >
+                <ThumbsDown className="mr-2" /> Abstain
+            </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+
 const ReviewPositionCard = ({ position }: { position: Position }) => (
   <Card key={position.id}>
     <CardHeader>
@@ -133,18 +190,19 @@ export default function RoomPreviewPage() {
     }
   }, [roomId]);
   
-  const handleVote = (candidateId: string) => {
+  const handleVote = (voteValue: string | null) => {
     if (!room) return;
     const positionId = room.positions[currentPositionIndex].id;
-    setSelections(prev => ({...prev, [positionId]: candidateId }));
-    
-    // Automatically move to next position
+    setSelections(prev => ({ ...prev, [positionId]: voteValue }));
+
+    // Automatically move to next position if not on the last one
     setTimeout(() => {
-        if(currentPositionIndex < room.positions.length - 1) {
-            setCurrentPositionIndex(currentPositionIndex + 1);
-        }
+      if (currentPositionIndex < room.positions.length - 1) {
+        setCurrentPositionIndex(currentPositionIndex + 1);
+      }
     }, 300);
   };
+
 
   const handleNext = () => {
     if (!room || currentPositionIndex >= room.positions.length - 1) return;
@@ -169,6 +227,8 @@ export default function RoomPreviewPage() {
   const progress = isVotingRoom ? ((currentPositionIndex + 1) / room.positions.length) * 100 : 100;
   const currentPosition = room.positions[currentPositionIndex];
   const currentSelection = selections[currentPosition?.id] || null;
+  const isLastPosition = currentPositionIndex === room.positions.length - 1;
+  const isSingleCandidatePosition = currentPosition?.candidates.length === 1;
 
   return (
     <div className="bg-muted/40 p-4 sm:p-8 rounded-lg">
@@ -190,12 +250,21 @@ export default function RoomPreviewPage() {
 
         <div className="space-y-8">
             {isVotingRoom ? (
-                <VotingPositionCard 
-                    key={currentPosition.id} 
-                    position={currentPosition}
-                    onVote={handleVote}
-                    selection={currentSelection}
-                />
+                isSingleCandidatePosition ? (
+                    <SingleCandidatePositionCard
+                        key={currentPosition.id}
+                        position={currentPosition}
+                        onVote={handleVote}
+                        selection={currentSelection}
+                    />
+                ) : (
+                    <VotingPositionCard 
+                        key={currentPosition.id} 
+                        position={currentPosition}
+                        onVote={handleVote}
+                        selection={currentSelection}
+                    />
+                )
             ) : (
                 room.positions.map(position => <ReviewPositionCard key={position.id} position={position} />)
             )}
@@ -209,21 +278,28 @@ export default function RoomPreviewPage() {
                 <span>
                     {currentSelection && <Check className="h-6 w-6 text-green-500" />}
                 </span>
-                <Button variant="default" onClick={handleNext} disabled={currentPositionIndex === room.positions.length - 1}>
-                    Next <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+                {!isLastPosition && (
+                    <Button variant="default" onClick={handleNext}>
+                        {currentPositionIndex === room.positions.length - 2 ? 'Finish & Review' : 'Next'} 
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                )}
             </div>
         )}
-
-        <Button size="lg" className="w-full" disabled>
-          {room.roomType === 'review' ? (
-             <Send className="mr-2 h-5 w-5" />
-          ) : (
-             <Check className="mr-2 h-5 w-5" />
-          )}
-          Submit {room.roomType === 'review' ? 'Review' : 'Ballot'}
-        </Button>
+        
+        {((isVotingRoom && isLastPosition) || !isVotingRoom) && (
+            <Button size="lg" className="w-full" disabled>
+            {room.roomType === 'review' ? (
+                <Send className="mr-2 h-5 w-5" />
+            ) : (
+                <Check className="mr-2 h-5 w-5" />
+            )}
+            Submit {room.roomType === 'review' ? 'Review' : 'Ballot'}
+            </Button>
+        )}
       </div>
     </div>
   );
 }
+
+    
