@@ -50,7 +50,10 @@ const sendInviteFlow = ai.defineFlow(
     // In a real app, this secret should be stored securely as an environment variable.
     // It's hardcoded here for simplicity of the example.
     const JWT_SECRET = 'your-super-secret-key-that-is-long-and-secure';
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    
+    // Use a dynamic approach for the base URL. In a development environment, NEXT_PUBLIC_BASE_URL might not be set.
+    // Fallback to a relative path if the full URL isn't available, which works in most modern browsers.
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
 
     try {
       // 1. Get room details to use in the email
@@ -73,7 +76,8 @@ const sendInviteFlow = ai.defineFlow(
       const token = jwt.sign({ email, roomId }, JWT_SECRET, { expiresIn: '7d' });
 
       // 4. Construct the unique invite link
-      const inviteLink = `${baseUrl}/vote/${roomId}/waiting?token=${token}`;
+      const invitePath = `/vote/${roomId}/waiting?token=${token}`;
+      const inviteLink = `${baseUrl}${invitePath}`;
 
       // 5. Generate the email content using another flow
       const emailContent = await generateInviteEmail({
