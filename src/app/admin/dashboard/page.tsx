@@ -235,9 +235,15 @@ export default function AdminDashboardPage() {
             >
               <CardHeader>
                  <div className="flex justify-between items-start gap-2">
-                  <CardTitle className="text-xl font-headline mb-1">{room.title}</CardTitle>
+                  <CardTitle className="text-xl font-headline mb-1 flex-grow">{room.title}</CardTitle>
                   <div className="flex-shrink-0 flex flex-col items-end gap-2">
-                    <StatusBadge status={room.status} />
+                    <div className="flex items-center gap-2">
+                      <StatusBadge status={room.status} />
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => openDeleteDialog(room)}>
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete Room</span>
+                      </Button>
+                    </div>
                     <RoomTypeBadge type={room.roomType} />
                   </div>
                 </div>
@@ -271,9 +277,6 @@ export default function AdminDashboardPage() {
                   <Link href={`/vote/${room.id}`} target="_blank" rel="noopener noreferrer">
                     <Eye className="mr-2 h-4 w-4" /> Voter View
                   </Link>
-                </Button>
-                <Button variant="destructive" size="sm" className="w-full col-span-2 mt-1" onClick={() => openDeleteDialog(room)}>
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Room
                 </Button>
               </CardFooter>
             </Card>
