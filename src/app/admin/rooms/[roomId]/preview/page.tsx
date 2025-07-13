@@ -108,46 +108,48 @@ const SingleCandidatePositionCard = ({
   selection: string | null;
 }) => {
   const candidate = position.candidates[0];
-  const candidateId = candidate.id;
-  const isVotedFor = selection === candidateId;
-  const isAbstained = selection === 'abstain';
+  const isVotedFor = selection === candidate.id;
+
+  const handleToggleVote = () => {
+    // If already voted for, clicking again abstains (sets selection to null)
+    // If not voted for, clicking votes for the candidate
+    const newSelection = isVotedFor ? null : candidate.id;
+    onVote(newSelection);
+  };
 
   return (
     <Card key={position.id}>
       <CardHeader>
         <CardTitle>{position.title}</CardTitle>
-        <CardDescription>You can vote for this candidate or abstain.</CardDescription>
+        <CardDescription>Click the card to vote for this candidate, or click again to abstain.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center justify-between space-x-4 p-4 border rounded-md bg-muted/20">
-            <div className="flex-1 flex items-center gap-4">
-                <Image
-                    src={candidate.imageUrl || `https://placehold.co/100x100.png?text=${candidate.name.charAt(0)}`}
-                    alt={candidate.name}
-                    width={56}
-                    height={56}
-                    className="rounded-full object-cover w-14 h-14"
-                    data-ai-hint="person portrait"
-                />
-                <span className="font-semibold text-lg">{candidate.name}</span>
-            </div>
-        </div>
-        <div className="flex gap-4">
-            <Button
-                className={cn("w-full", isVotedFor && "ring-2 ring-green-500 ring-offset-2")}
-                variant={isVotedFor ? "default" : "outline"}
-                onClick={() => onVote(candidateId)}
-            >
-                <ThumbsUp className="mr-2" /> Vote For
-            </Button>
-            <Button
-                className={cn("w-full", isAbstained && "ring-2 ring-destructive ring-offset-2")}
-                variant={isAbstained ? "destructive" : "outline"}
-                onClick={() => onVote('abstain')}
-            >
-                <ThumbsDown className="mr-2" /> Abstain
-            </Button>
-        </div>
+      <CardContent>
+        <Button
+          key={candidate.id}
+          variant="outline"
+          className={cn(
+            "w-full h-auto p-4 justify-start text-left flex items-center gap-4 transition-all",
+            isVotedFor && "border-green-600 ring-2 ring-green-600 bg-green-600/5"
+          )}
+          onClick={handleToggleVote}
+        >
+          <div className="flex-shrink-0">
+            {isVotedFor ? (
+              <ThumbsUp className="h-6 w-6 text-green-600" />
+            ) : (
+              <ThumbsDown className="h-6 w-6 text-muted-foreground" />
+            )}
+          </div>
+          <Image
+              src={candidate.imageUrl || `https://placehold.co/100x100.png?text=${candidate.name.charAt(0)}`}
+              alt={candidate.name}
+              width={56}
+              height={56}
+              className="rounded-full object-cover w-14 h-14"
+              data-ai-hint="person portrait"
+          />
+          <span className="font-semibold text-lg flex-grow">{candidate.name}</span>
+        </Button>
       </CardContent>
     </Card>
   );
@@ -213,6 +215,10 @@ export default function RoomPreviewPage() {
               data.positions.forEach(p => {
                 initialSelections[p.id] = { rating: 0, feedback: '' };
               });
+            } else {
+              data.positions.forEach(p => {
+                  initialSelections[p.id] = null;
+              });
             }
             setSelections(initialSelections);
           }
@@ -230,12 +236,14 @@ export default function RoomPreviewPage() {
     const positionId = room.positions[currentPositionIndex].id;
     setSelections(prev => ({ ...prev, [positionId]: selectionValue }));
 
-    // Automatically move to next position if not on the last one
-    setTimeout(() => {
-      if (currentPositionIndex < room.positions.length - 1) {
-        setCurrentPositionIndex(currentPositionIndex + 1);
-      }
-    }, 300);
+    if(room.roomType === 'voting' && room.positions[currentPositionIndex].candidates.length > 1) {
+        // Automatically move to next position if not on the last one for multi-candidate votes
+        setTimeout(() => {
+          if (currentPositionIndex < room.positions.length - 1) {
+            setCurrentPositionIndex(currentPositionIndex + 1);
+          }
+        }, 300);
+    }
   };
 
   const handleReviewSelection = (update: { rating?: number; feedback?: string }) => {
@@ -320,13 +328,18 @@ export default function RoomPreviewPage() {
   const hasMadeSelection = () => {
     if (!currentPosition) return false;
     const selection = selections[currentPosition.id];
-    if (!selection) return false;
+    if (selection === undefined) return false;
     
     if (room.roomType === 'review') {
       // For review, selection is considered made if there is a rating and feedback
-      return selection.rating > 0 && selection.feedback.trim() !== '';
+      return selection?.rating > 0 && selection?.feedback.trim() !== '';
     }
-    // For voting, any non-null selection is valid
+    // For voting, any non-null selection is valid for multi-candidate.
+    // For single candidate, a null selection is also valid (abstain).
+    if (currentPosition.candidates.length === 1) {
+        return true; // Always allow moving on from a single candidate position.
+    }
+    
     return selection !== null;
   };
 
