@@ -37,7 +37,7 @@ function StatusBadge({ status }: { status: ElectionRoom['status'] }) {
     case 'pending':
       return <Badge variant="secondary"><Clock className="mr-1 h-3 w-3" /> Pending</Badge>;
     case 'closed':
-      return <Badge variant="outline"><XCircle className="mr-1 h-3 w-3" /> Closed</Badge>;
+      return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" /> Closed</Badge>;
     default:
       return <Badge variant="outline">Unknown</Badge>;
   }
@@ -225,29 +225,22 @@ export default function AdminDashboardPage() {
           {electionRooms.map((room) => (
             <Card 
               key={room.id} 
-              className={cn(
-                "flex flex-col hover:shadow-xl transition-all duration-300 border-2",
-                 room.roomType === 'review' 
-                    ? "border-purple-500/40 hover:border-purple-500/60 bg-purple-500/5" 
-                    : "border-primary/40 hover:border-primary/60 bg-primary/5"
-              )}
+              className="flex flex-col hover:shadow-xl transition-shadow duration-300"
             >
               <CardHeader>
                 <div className="flex justify-between items-start gap-4">
-                    <div className="flex-grow">
-                        <CardTitle className="text-xl font-headline mb-1 line-clamp-2">{room.title}</CardTitle>
-                        <CardDescription className="text-sm line-clamp-2">{room.description}</CardDescription>
-                    </div>
-                    <div className="flex-shrink-0">
+                    <CardTitle className="text-xl font-headline mb-1 line-clamp-2 flex-grow">{room.title}</CardTitle>
+                    <div className="flex-shrink-0 flex items-center gap-2">
+                        <RoomTypeBadge type={room.roomType} />
                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => openDeleteDialog(room)}>
                             <Trash2 className="h-4 w-4" />
                             <span className="sr-only">Delete Room</span>
                         </Button>
                     </div>
                 </div>
+                 <CardDescription className="text-sm line-clamp-2">{room.description}</CardDescription>
                 <div className="flex items-center gap-2 pt-2">
                     <StatusBadge status={room.status} />
-                    <RoomTypeBadge type={room.roomType} />
                 </div>
               </CardHeader>
               <CardContent className="flex-grow space-y-2 text-sm text-muted-foreground">
