@@ -16,6 +16,7 @@ import { Check, Send, ArrowRight, ArrowLeft, ThumbsUp, ThumbsDown } from "lucide
 import StarRating from "@/components/app/StarRating";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 function PreviewSkeleton() {
   return (
@@ -143,12 +144,12 @@ const SingleCandidatePositionCard = ({
 
 const ReviewPositionCard = ({ 
   position,
-  onRatingChange,
-  rating,
+  onSelectionChange,
+  selection,
 }: { 
   position: Position,
-  onRatingChange: (rating: number) => void,
-  rating: number,
+  onSelectionChange: (update: { rating?: number; feedback?: string }) => void,
+  selection: { rating: number, feedback: string },
 }) => (
   <Card key={position.id}>
     <CardHeader>
@@ -159,13 +160,18 @@ const ReviewPositionCard = ({
       <div>
         <Label className="mb-2 block">Rating</Label>
         <div className="flex flex-col items-center gap-2">
-            <StarRating rating={rating} onRatingChange={onRatingChange} />
-            <span className="font-bold text-lg w-24 text-center bg-muted rounded-md py-1">{rating} / 5</span>
+            <StarRating rating={selection.rating} onRatingChange={(rating) => onSelectionChange({ rating })} />
+            <span className="font-bold text-lg w-24 text-center bg-muted rounded-md py-1">{selection.rating} / 5</span>
         </div>
       </div>
       <div>
         <Label>Feedback</Label>
-        <Textarea placeholder="Enter your detailed feedback here..." className="mt-2" disabled />
+        <Textarea 
+          placeholder="Enter your detailed feedback here..." 
+          className="mt-2"
+          value={selection.feedback}
+          onChange={(e) => onSelectionChange({ feedback: e.target.value })}
+        />
       </div>
     </CardContent>
   </Card>
@@ -174,6 +180,7 @@ const ReviewPositionCard = ({
 export default function RoomPreviewPage() {
   const params = useParams();
   const roomId = params.roomId as string;
+  const { toast } = useToast();
 
   const [room, setRoom] = useState<ElectionRoom | null>(null);
   const [loading, setLoading] = useState(true);
@@ -188,6 +195,14 @@ export default function RoomPreviewPage() {
             notFound();
           } else {
             setRoom(data);
+            // Initialize selections based on room type
+            const initialSelections: Record<string, any> = {};
+            if (data.roomType === 'review') {
+              data.positions.forEach(p => {
+                initialSelections[p.id] = { rating: 0, feedback: '' };
+              });
+            }
+            setSelections(initialSelections);
           }
         })
         .catch(err => {
@@ -198,7 +213,7 @@ export default function RoomPreviewPage() {
     }
   }, [roomId]);
   
-  const handleSelection = (selectionValue: any) => {
+  const handleVoteSelection = (selectionValue: any) => {
     if (!room) return;
     const positionId = room.positions[currentPositionIndex].id;
     setSelections(prev => ({ ...prev, [positionId]: selectionValue }));
@@ -211,9 +226,31 @@ export default function RoomPreviewPage() {
     }, 300);
   };
 
+  const handleReviewSelection = (update: { rating?: number; feedback?: string }) => {
+    if (!room) return;
+    const positionId = room.positions[currentPositionIndex].id;
+    setSelections(prev => ({
+      ...prev,
+      [positionId]: { ...prev[positionId], ...update }
+    }));
+  };
 
   const handleNext = () => {
     if (!room || currentPositionIndex >= room.positions.length - 1) return;
+
+    if (room.roomType === 'review') {
+      const currentPositionId = room.positions[currentPositionIndex].id;
+      const currentReview = selections[currentPositionId];
+      if (!currentReview || currentReview.rating === 0) {
+        toast({ variant: "destructive", title: "Incomplete", description: "Please provide a star rating." });
+        return;
+      }
+      if (!currentReview.feedback || currentReview.feedback.trim() === '') {
+        toast({ variant: "destructive", title: "Incomplete", description: "Please provide written feedback." });
+        return;
+      }
+    }
+
     setCurrentPositionIndex(currentPositionIndex + 1);
   };
 
@@ -244,8 +281,8 @@ export default function RoomPreviewPage() {
         <ReviewPositionCard 
           key={currentPosition.id} 
           position={currentPosition}
-          rating={currentSelection || 0}
-          onRatingChange={handleSelection}
+          selection={currentSelection || { rating: 0, feedback: '' }}
+          onSelectionChange={handleReviewSelection}
         />
       );
     }
@@ -255,18 +292,32 @@ export default function RoomPreviewPage() {
       <SingleCandidatePositionCard
         key={currentPosition.id}
         position={currentPosition}
-        onVote={handleSelection}
+        onVote={handleVoteSelection}
         selection={currentSelection}
       />
     ) : (
       <VotingPositionCard 
         key={currentPosition.id} 
         position={currentPosition}
-        onVote={handleSelection}
+        onVote={handleVoteSelection}
         selection={currentSelection}
       />
     );
   };
+  
+  const hasMadeSelection = () => {
+    if (!currentPosition) return false;
+    const selection = selections[currentPosition.id];
+    if (!selection) return false;
+    
+    if (room.roomType === 'review') {
+      // For review, selection is considered made if there is a rating and feedback
+      return selection.rating > 0 && selection.feedback.trim() !== '';
+    }
+    // For voting, any non-null selection is valid
+    return selection !== null;
+  };
+
 
   return (
     <div className="bg-muted/40 p-4 sm:p-8 rounded-lg">
@@ -293,7 +344,7 @@ export default function RoomPreviewPage() {
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
             <span>
-                {currentSelection && <Check className="h-6 w-6 text-green-500" />}
+                {hasMadeSelection() && <Check className="h-6 w-6 text-green-500" />}
             </span>
             {!isLastPosition ? (
                 <Button variant="default" onClick={handleNext}>
