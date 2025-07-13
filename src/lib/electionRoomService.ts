@@ -161,7 +161,7 @@ export async function getElectionRoomById(roomId: string, options: { withVoteCou
 
 export async function getVotersForRoom(roomId: string): Promise<Voter[]> {
   const votersColRef = collection(db, "electionRooms", roomId, "voters");
-  const votersSnap = await getDocs(query(votersColRef, orderBy("votedAt", "desc")));
+  const votersSnap = await getDocs(query(votersColRef, orderBy("lastActivity", "desc")));
 
   if (votersSnap.empty) {
     return [];
@@ -171,8 +171,8 @@ export async function getVotersForRoom(roomId: string): Promise<Voter[]> {
     const data = doc.data();
     return {
       email: doc.id,
-      status: 'voted', // simplified status
-      votedAt: (data.votedAt as Timestamp)?.toDate().toISOString(),
+      status: data.status,
+      lastActivity: (data.lastActivity as Timestamp)?.toDate().toISOString(),
     };
   });
   
@@ -206,6 +206,37 @@ export async function deleteElectionRoom(roomId: string, passwordAttempt: string
     }
 }
 
+export async function recordParticipantEntry(
+    roomId: string,
+    voterEmail: string
+): Promise<{ success: boolean; message: string }> {
+    const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
+
+    try {
+        await runTransaction(db, async (transaction) => {
+            const voterDoc = await transaction.get(voterRef);
+            if (voterDoc.exists()) {
+                // If they exist and have completed, deny re-entry.
+                if (voterDoc.data().status === 'completed') {
+                    throw new Error("You have already completed your submission for this room.");
+                }
+                // If they exist but are 'in_room', allow them to continue (e.g., page refresh).
+                // No need to write anything new here, just let them pass.
+            } else {
+                // First time entry, set status to 'in_room'
+                transaction.set(voterRef, {
+                    status: 'in_room',
+                    lastActivity: serverTimestamp()
+                });
+            }
+        });
+        return { success: true, message: "Entry recorded." };
+    } catch (error: any) {
+        console.error("Error recording participant entry:", error);
+        return { success: false, message: error.message || "Could not record your entry. Please try again." };
+    }
+}
+
 export async function submitBallot(
   roomId: string,
   voterEmail: string,
@@ -215,7 +246,7 @@ export async function submitBallot(
     await runTransaction(db, async (transaction) => {
       const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
       const voterSnap = await transaction.get(voterRef);
-      if (voterSnap.exists()) {
+      if (voterSnap.exists() && voterSnap.data().status === 'completed') {
         throw new Error("You have already voted in this election.");
       }
 
@@ -235,15 +266,17 @@ export async function submitBallot(
           batch.set(voteRef, {
             positionId,
             candidateId,
+            voterEmail, // Keep it anonymous at data level, but traceable if needed for integrity checks
             votedAt: serverTimestamp(),
           });
         }
       }
 
-      // Mark voter as having voted
+      // Mark voter as having voted and update status to completed
       batch.set(voterRef, {
-        votedAt: serverTimestamp(),
-      });
+        status: 'completed',
+        lastActivity: serverTimestamp(),
+      }, { merge: true });
 
       await batch.commit();
     });
@@ -264,7 +297,7 @@ export async function submitReview(
     await runTransaction(db, async (transaction) => {
       const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
       const voterSnap = await transaction.get(voterRef);
-      if (voterSnap.exists()) {
+      if (voterSnap.exists() && voterSnap.data().status === 'completed') {
         throw new Error("You have already submitted a review for this room.");
       }
 
@@ -292,15 +325,17 @@ export async function submitReview(
             candidateId,
             rating: reviewData.rating,
             feedback: reviewData.feedback,
+            reviewerEmail: voterEmail,
             reviewedAt: serverTimestamp(),
           });
         }
       }
 
-      // Mark voter as having reviewed
+      // Mark voter as having reviewed and set status to completed
       batch.set(voterRef, {
-        votedAt: serverTimestamp(), // Use 'votedAt' for consistency
-      });
+        status: 'completed',
+        lastActivity: serverTimestamp(),
+      }, { merge: true });
 
       await batch.commit();
     });

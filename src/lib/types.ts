@@ -28,6 +28,6 @@ export interface ElectionRoom {
 
 export interface Voter {
   email: string;
-  status: 'voted'; // Simplified status
-  votedAt?: string;
+  status: 'in_room' | 'completed';
+  lastActivity?: string;
 }

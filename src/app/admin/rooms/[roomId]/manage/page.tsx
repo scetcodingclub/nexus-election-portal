@@ -4,19 +4,149 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, notFound } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebaseClient";
-import { getElectionRoomById } from "@/lib/electionRoomService";
-import type { ElectionRoom } from "@/lib/types";
+import { auth, db } from "@/lib/firebaseClient";
+import { getElectionRoomById, getVotersForRoom } from "@/lib/electionRoomService";
+import type { ElectionRoom, Voter } from "@/lib/types";
 
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, BarChart3, AlertTriangle, Users, Eye, QrCode, Fingerprint } from 'lucide-react';
+import { ArrowLeft, BarChart3, AlertTriangle, Eye, QrCode, Fingerprint, Users, Activity, CheckCircle, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import Loading from './loading';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Image from 'next/image';
 import ShareableLinkDisplay from "@/components/app/admin/ShareableLinkDisplay";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+
+
+function LiveStatusSkeleton() {
+    return (
+        <Card className="shadow-xl">
+            <CardHeader>
+                <CardTitle className="text-xl font-headline flex items-center">
+                    <Activity className="mr-3 h-6 w-6 text-primary" />
+                    <Skeleton className="h-7 w-[300px]" />
+                </CardTitle>
+                <Skeleton className="h-4 w-[400px]" />
+            </CardHeader>
+            <CardContent>
+                 <div className="border rounded-lg">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Participant Email</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Last Activity</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {[...Array(2)].map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell><Skeleton className="h-5 w-[200px]" /></TableCell>
+                                    <TableCell><Skeleton className="h-6 w-[100px]" /></TableCell>
+                                    <TableCell className="text-right"><Skeleton className="h-5 w-[150px] ml-auto" /></TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+function LiveStatusDisplay({ room }: { room: ElectionRoom }) {
+    const [participants, setParticipants] = useState<Voter[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const votersColRef = collection(db, "electionRooms", room.id, "voters");
+        const q = query(votersColRef, orderBy("lastActivity", "desc"));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedParticipants = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    email: doc.id,
+                    status: data.status,
+                    lastActivity: data.lastActivity?.toDate().toISOString(),
+                };
+            });
+            setParticipants(fetchedParticipants);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error listening to participant updates:", error);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [room.id]);
+
+    if (isLoading) {
+        return <LiveStatusSkeleton />;
+    }
+
+    const title = room.roomType === 'review' ? 'Reviewer' : 'Voter';
+
+    return (
+        <Card className="shadow-xl">
+            <CardHeader>
+                <CardTitle className="text-xl font-headline flex items-center">
+                    <Activity className="mr-3 h-6 w-6 text-primary" />
+                    Live Participation Status
+                </CardTitle>
+                <CardDescription>
+                    Real-time tracking of participants in this room. A total of {participants.length} {participants.length === 1 ? 'person has' : 'people have'} entered.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {participants.length > 0 ? (
+                    <div className="border rounded-lg max-h-96 overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-sm">
+                                <TableRow>
+                                    <TableHead>{title} Email</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Last Activity</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {participants.map((p) => (
+                                    <TableRow key={p.email}>
+                                        <TableCell className="font-medium truncate max-w-xs">{p.email}</TableCell>
+                                        <TableCell>
+                                            {p.status === 'completed' ? (
+                                                <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                                    <CheckCircle className="mr-1 h-3 w-3" /> Completed
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="secondary">
+                                                    <LogIn className="mr-1 h-3 w-3" /> In Room
+                                                </Badge>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {p.lastActivity ? format(new Date(p.lastActivity), "PPP p") : 'N/A'}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                ) : (
+                    <div className="text-center py-12 text-muted-foreground border-dashed border-2 rounded-lg">
+                        <p>No one has entered the room yet.</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
 
 
 export default function ManageElectionRoomPage() {
@@ -127,6 +257,8 @@ export default function ManageElectionRoomPage() {
           <ElectionRoomForm initialData={room} />
         </CardContent>
       </Card>
+
+      <LiveStatusDisplay room={room} />
 
       <Card>
         <CardHeader>

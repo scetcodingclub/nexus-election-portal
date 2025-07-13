@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, notFound, useRouter } from "next/navigation";
-import { getElectionRoomById, submitBallot, submitReview } from "@/lib/electionRoomService";
+import { getElectionRoomById, submitBallot, submitReview, recordParticipantEntry } from "@/lib/electionRoomService";
 import type { ElectionRoom, Position } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -206,19 +206,24 @@ const GuidelinesScreen = ({
     const [email, setEmail] = useState("");
     const [isEmailValid, setIsEmailValid] = useState(false);
     
-    // State for checkboxes
-    const [rulesAcknowledged, setRulesAcknowledged] = useState({
-      rule1: false,
-      rule2: false,
-      rule3: false,
-      rule4: false,
-    });
-    
-    const handleCheckboxChange = (rule: keyof typeof rulesAcknowledged) => {
-        setRulesAcknowledged(prev => ({...prev, [rule]: !prev[rule]}));
+    const initialGeneralRulesState = { rule1: false, rule2: false, rule3: false, rule4: false };
+    const [generalRulesAcknowledged, setGeneralRulesAcknowledged] = useState(initialGeneralRulesState);
+    const handleGeneralCheckboxChange = (rule: keyof typeof generalRulesAcknowledged) => {
+        setGeneralRulesAcknowledged(prev => ({...prev, [rule]: !prev[rule]}));
     };
     
-    const allRulesChecked = Object.values(rulesAcknowledged).every(Boolean);
+    const initialVotingRulesState = { rule1: false, rule2: false };
+    const [votingRulesAcknowledged, setVotingRulesAcknowledged] = useState(initialVotingRulesState);
+    const handleVotingCheckboxChange = (rule: keyof typeof votingRulesAcknowledged) => {
+        setVotingRulesAcknowledged(prev => ({...prev, [rule]: !prev[rule]}));
+    };
+
+    const allGeneralRulesChecked = Object.values(generalRulesAcknowledged).every(Boolean);
+    const allVotingRulesChecked = Object.values(votingRulesAcknowledged).every(Boolean);
+    
+    const canProceed = room.roomType === 'voting'
+        ? isEmailValid && allGeneralRulesChecked && allVotingRulesChecked
+        : isEmailValid && allGeneralRulesChecked;
 
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
@@ -242,20 +247,20 @@ const GuidelinesScreen = ({
                     <AlertDescription>
                        <ul className="space-y-3 mt-4 text-xs sm:text-sm">
                           <li className="flex items-start gap-3">
-                            <Checkbox id="rule1" checked={rulesAcknowledged.rule1} onCheckedChange={() => handleCheckboxChange('rule1')} className="mt-0.5" />
-                            <label htmlFor="rule1" className="flex-1"><span className="font-semibold">Only authorized members are allowed.</span> Your access has been granted based on your email.</label>
+                            <Checkbox id="g-rule1" checked={generalRulesAcknowledged.rule1} onCheckedChange={() => handleGeneralCheckboxChange('rule1')} className="mt-0.5" />
+                            <label htmlFor="g-rule1" className="flex-1"><span className="font-semibold">Only authorized members are allowed.</span> Your access has been granted based on your email.</label>
                           </li>
                           <li className="flex items-start gap-3">
-                            <Checkbox id="rule2" checked={rulesAcknowledged.rule2} onCheckedChange={() => handleCheckboxChange('rule2')} className="mt-0.5" />
-                            <label htmlFor="rule2" className="flex-1"><span className="font-semibold">You can enter the room only once.</span> Make sure you’re ready before clicking “Start”. Refreshing or exiting may lock your session.</label>
+                            <Checkbox id="g-rule2" checked={generalRulesAcknowledged.rule2} onCheckedChange={() => handleGeneralCheckboxChange('rule2')} className="mt-0.5" />
+                            <label htmlFor="g-rule2" className="flex-1"><span className="font-semibold">You can enter the room only once.</span> Make sure you’re ready before clicking “Start”. Refreshing or exiting may lock your session.</label>
                           </li>
                            <li className="flex items-start gap-3">
-                            <Checkbox id="rule3" checked={rulesAcknowledged.rule3} onCheckedChange={() => handleCheckboxChange('rule3')} className="mt-0.5" />
-                            <label htmlFor="rule3" className="flex-1"><span className="font-semibold">Maintain honesty and neutrality</span> while reviewing or voting. Sharing or discussing your vote/review is prohibited.</label>
+                            <Checkbox id="g-rule3" checked={generalRulesAcknowledged.rule3} onCheckedChange={() => handleGeneralCheckboxChange('rule3')} className="mt-0.5" />
+                            <label htmlFor="g-rule3" className="flex-1"><span className="font-semibold">Maintain honesty and neutrality</span> while reviewing or voting. Sharing or discussing your vote/review is prohibited.</label>
                           </li>
                           <li className="flex items-start gap-3">
-                            <Checkbox id="rule4" checked={rulesAcknowledged.rule4} onCheckedChange={() => handleCheckboxChange('rule4')} className="mt-0.5" />
-                            <label htmlFor="rule4" className="flex-1"><span className="font-semibold">Once submitted, no changes can be made.</span> Ensure you have a stable internet connection.</label>
+                            <Checkbox id="g-rule4" checked={generalRulesAcknowledged.rule4} onCheckedChange={() => handleGeneralCheckboxChange('rule4')} className="mt-0.5" />
+                            <label htmlFor="g-rule4" className="flex-1"><span className="font-semibold">Once submitted, no changes can be made.</span> Ensure you have a stable internet connection.</label>
                           </li>
                        </ul>
                     </AlertDescription>
@@ -266,10 +271,15 @@ const GuidelinesScreen = ({
                     <Info className="h-4 w-4" />
                     <AlertTitle>Voting Room – Specific Rules</AlertTitle>
                     <AlertDescription>
-                       <ul className="list-disc pl-5 space-y-2 mt-2 text-xs sm:text-sm">
-                          <li><span className="font-semibold">🗳️ You are here to cast your vote</span> — selecting who you support or oppose.</li>
-                          <li><span className="font-semibold">✋ Voting is binary:</span> Yes (Support) or No (Do not support).</li>
-                          <li><span className="font-semibold">📥 Every vote is final</span> and securely recorded in the election system.</li>
+                       <ul className="space-y-3 mt-4 text-xs sm:text-sm">
+                          <li className="flex items-start gap-3">
+                             <Checkbox id="v-rule1" checked={votingRulesAcknowledged.rule1} onCheckedChange={() => handleVotingCheckboxChange('rule1')} className="mt-0.5" />
+                             <label htmlFor="v-rule1" className="flex-1"><span className="font-semibold">🗳️ You are here to cast your vote</span> — selecting who you support or oppose.</label>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <Checkbox id="v-rule2" checked={votingRulesAcknowledged.rule2} onCheckedChange={() => handleVotingCheckboxChange('rule2')} className="mt-0.5" />
+                            <label htmlFor="v-rule2" className="flex-1"><span className="font-semibold">📥 Every vote is final</span> and securely recorded in the election system.</label>
+                          </li>
                        </ul>
                     </AlertDescription>
                   </Alert>
@@ -297,7 +307,7 @@ const GuidelinesScreen = ({
                     />
                 </div>
                 
-                <Button size="lg" className="w-full" disabled={!isEmailValid || !allRulesChecked} onClick={() => onStart(email)}>
+                <Button size="lg" className="w-full" disabled={!canProceed} onClick={() => onStart(email)}>
                     <ArrowRight className="mr-2 h-5 w-5" />
                     {startButtonText}
                 </Button>
@@ -357,9 +367,18 @@ export default function VotingPage() {
     }
   }, [roomId]);
 
-  const handleStart = (email: string) => {
+  const handleStart = async (email: string) => {
     setVoterEmail(email);
-    setHasStarted(true);
+    const result = await recordParticipantEntry(roomId, email);
+    if (result.success) {
+        setHasStarted(true);
+    } else {
+        toast({
+            variant: "destructive",
+            title: "Access Denied",
+            description: result.message
+        })
+    }
   };
   
   const handleVoteSelection = (selectionValue: any) => {
