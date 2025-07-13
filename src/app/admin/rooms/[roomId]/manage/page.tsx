@@ -10,7 +10,7 @@ import type { ElectionRoom } from "@/lib/types";
 
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, BarChart3, AlertTriangle, Users } from 'lucide-react';
+import { ArrowLeft, BarChart3, AlertTriangle, Users, Eye } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import Loading from './loading';
@@ -86,17 +86,24 @@ export default function ManageElectionRoomPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <Button variant="outline" asChild>
           <Link href="/admin/dashboard">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Panel
           </Link>
         </Button>
-        <Button variant="default" asChild>
-          <Link href={`/admin/rooms/${room.id}/results`}>
-            <BarChart3 className="mr-2 h-4 w-4" /> View Results
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+           <Button variant="outline" asChild>
+              <Link href={`/admin/rooms/${room.id}/preview`} target="_blank">
+                <Eye className="mr-2 h-4 w-4" /> Preview
+              </Link>
+            </Button>
+            <Button variant="default" asChild>
+              <Link href={`/admin/rooms/${room.id}/results`}>
+                <BarChart3 className="mr-2 h-4 w-4" /> View Results
+              </Link>
+            </Button>
+        </div>
       </div>
       
       <Card className="shadow-xl">
