@@ -7,7 +7,6 @@ import { getElectionRoomById } from "@/lib/electionRoomService";
 import type { ElectionRoom, Position, Candidate } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -49,39 +48,52 @@ function PreviewSkeleton() {
   );
 }
 
-const VotingPositionCard = ({ 
+const VotingPositionCard = ({
   position,
   onVote,
-  selection
-}: { 
-  position: Position,
-  onVote: (candidateId: string) => void,
-  selection: string | null
+  selection,
+}: {
+  position: Position;
+  onVote: (candidateId: string) => void;
+  selection: string | null;
 }) => (
   <Card key={position.id}>
     <CardHeader>
       <CardTitle>{position.title}</CardTitle>
       <CardDescription>Select one candidate for this position.</CardDescription>
     </CardHeader>
-    <CardContent>
-      <RadioGroup onValueChange={onVote} value={selection || undefined} >
-        {position.candidates.map((candidate) => (
-          <div key={candidate.id} className="flex items-center space-x-4 p-4 border rounded-md has-[:checked]:bg-primary/5 has-[:checked]:border-primary transition-colors">
-            <RadioGroupItem value={candidate.id} id={`${position.id}-${candidate.id}`} />
-            <Label htmlFor={`${position.id}-${candidate.id}`} className="flex-1 flex items-center gap-4 cursor-pointer">
-              <Image
-                src={candidate.imageUrl || `https://placehold.co/100x100.png?text=${candidate.name.charAt(0)}`}
-                alt={candidate.name}
-                width={56}
-                height={56}
-                className="rounded-full object-cover w-14 h-14"
-                data-ai-hint="person portrait"
-              />
-              <span className="font-semibold text-lg">{candidate.name}</span>
-            </Label>
-          </div>
-        ))}
-      </RadioGroup>
+    <CardContent className="space-y-4">
+      {position.candidates.map((candidate) => {
+        const isSelected = selection === candidate.id;
+        return (
+          <Button
+            key={candidate.id}
+            variant="outline"
+            className={cn(
+              "w-full h-auto p-4 justify-start text-left flex items-center gap-4 transition-all",
+              isSelected && "border-primary ring-2 ring-primary bg-primary/5"
+            )}
+            onClick={() => onVote(candidate.id)}
+          >
+            <div className="flex-shrink-0">
+              {isSelected ? (
+                <ThumbsUp className="h-6 w-6 text-primary" />
+              ) : (
+                <ThumbsDown className="h-6 w-6 text-muted-foreground" />
+              )}
+            </div>
+            <Image
+              src={candidate.imageUrl || `https://placehold.co/100x100.png?text=${candidate.name.charAt(0)}`}
+              alt={candidate.name}
+              width={56}
+              height={56}
+              className="rounded-full object-cover w-14 h-14"
+              data-ai-hint="person portrait"
+            />
+            <span className="font-semibold text-lg flex-grow">{candidate.name}</span>
+          </Button>
+        );
+      })}
     </CardContent>
   </Card>
 );
