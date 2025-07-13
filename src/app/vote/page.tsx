@@ -25,6 +25,16 @@ export default function VoterAccessPage() {
     const roomId = formData.get('roomId') as string;
     const email = formData.get('email') as string;
 
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+       toast({
+        variant: "destructive",
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+      });
+      setIsLoading(false);
+      return;
+    }
+
     // First, verify the room and access code
     const accessResult = await verifyRoomAccess(formData);
 
@@ -57,6 +67,7 @@ export default function VoterAccessPage() {
             title: "Verification Failed",
             description: "Could not verify your voting status. Please try again.",
         });
+    } finally {
         setIsLoading(false);
     }
   };
@@ -124,7 +135,7 @@ export default function VoterAccessPage() {
                   </>
                 ) : (
                   <>
-                  Enter Voting Room <ArrowRight className="ml-2 h-4 w-4" />
+                  Enter Room <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
               </Button>
