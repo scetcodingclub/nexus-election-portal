@@ -1,17 +1,30 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
-import { getElectionRooms } from "@/lib/electionRoomService";
+import { getElectionRooms, deleteElectionRoom } from "@/lib/electionRoomService";
 import type { ElectionRoom } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle, PenSquare, Vote, Star } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { PlusCircle, Eye, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle, PenSquare, Vote, Star, Trash2, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
@@ -85,6 +98,13 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { toast } = useToast();
+
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [roomToDelete, setRoomToDelete] = useState<ElectionRoom | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -108,6 +128,45 @@ export default function AdminDashboardPage() {
     });
     return () => unsubscribe();
   }, [router]);
+
+  const openDeleteDialog = (room: ElectionRoom) => {
+    if (!room.deletionPassword) {
+        toast({
+            variant: "destructive",
+            title: "Deletion Not Set Up",
+            description: "This room doesn't have a deletion password configured. Please set one in the 'Manage' page first.",
+        });
+        return;
+    }
+    setRoomToDelete(room);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!roomToDelete) return;
+
+    setIsDeleting(true);
+    const result = await deleteElectionRoom(roomToDelete.id, deletePassword);
+    
+    if (result.success) {
+      toast({
+        title: "Room Deleted",
+        description: `"${roomToDelete.title}" has been successfully deleted.`,
+      });
+      setElectionRooms(rooms => rooms.filter(r => r.id !== roomToDelete.id));
+      setIsDeleteDialogOpen(false);
+      setRoomToDelete(null);
+      setDeletePassword("");
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Deletion Failed",
+        description: result.message,
+      });
+    }
+    setIsDeleting(false);
+  };
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -133,6 +192,7 @@ export default function AdminDashboardPage() {
   }
 
   return (
+    <>
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
         <Button asChild variant="secondary">
@@ -212,11 +272,48 @@ export default function AdminDashboardPage() {
                     <Eye className="mr-2 h-4 w-4" /> Voter View
                   </Link>
                 </Button>
+                <Button variant="destructive" size="sm" className="w-full col-span-2 mt-1" onClick={() => openDeleteDialog(room)}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Room
+                </Button>
               </CardFooter>
             </Card>
           ))}
         </div>
       )}
     </div>
+
+    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the room 
+            <span className="font-bold"> "{roomToDelete?.title}" </span> 
+            and all of its data. To proceed, please enter the deletion password.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <form onSubmit={handleConfirmDelete}>
+          <div className="space-y-2 my-4">
+              <Label htmlFor="delete-password">Deletion Password</Label>
+              <Input
+                  id="delete-password"
+                  type="password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  placeholder="Enter deletion password"
+                  autoFocus
+              />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setRoomToDelete(null); setDeletePassword(""); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction type="submit" disabled={isDeleting || !deletePassword}>
+               {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+               Confirm Deletion
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </form>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

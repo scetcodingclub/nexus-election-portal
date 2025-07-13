@@ -18,6 +18,7 @@ export interface ElectionRoom {
   description: string;
   isAccessRestricted: boolean; // Example property
   accessCode?: string; // For joining the room
+  deletionPassword?: string; // For authorizing deletion
   positions: Position[];
   createdAt: string;
   updatedAt?: string; // Added for Firestore timestamp

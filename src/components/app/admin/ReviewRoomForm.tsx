@@ -45,6 +45,7 @@ const reviewRoomFormSchema = z.object({
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
   isAccessRestricted: z.boolean().default(false),
   accessCode: z.string().optional(),
+  deletionPassword: z.string().min(6, { message: "Deletion password must be at least 6 characters." }),
   positions: z.array(positionSchema).min(1, "At least one position is required."),
   status: z.enum(["pending", "active", "closed"]).optional(),
 }).refine(data => {
@@ -78,6 +79,7 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
       description: initialData.description || "",
       isAccessRestricted: initialData.isAccessRestricted || false,
       accessCode: initialData.accessCode || "",
+      deletionPassword: initialData.deletionPassword || "",
       status: initialData.status || "pending",
       positions: (initialData.positions || []).map(p => ({
         id: p.id,
@@ -93,6 +95,7 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
       description: "",
       isAccessRestricted: false,
       accessCode: "",
+      deletionPassword: "",
       status: "pending",
       positions: [],
     },
@@ -136,6 +139,7 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
       title: values.title,
       description: values.description,
       isAccessRestricted: values.isAccessRestricted,
+      deletionPassword: values.deletionPassword,
       positions: firestoreReadyPositions,
       status: values.status || 'pending',
       roomType: 'review', // Differentiate this from a voting room
@@ -286,6 +290,24 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
             )}
           />
         )}
+        
+        <FormField
+          control={form.control}
+          name="deletionPassword"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Deletion Password</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="Enter a secure password for deletion" {...field} suppressHydrationWarning={true} />
+              </FormControl>
+              <FormDescription>
+                This password will be required to delete the room. Minimum 6 characters.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
 
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Positions</h3>

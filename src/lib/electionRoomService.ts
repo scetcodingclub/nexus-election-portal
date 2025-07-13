@@ -1,6 +1,6 @@
 
 import { db } from "@/lib/firebaseClient";
-import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc } from "firebase/firestore";
 import type { ElectionRoom } from '@/lib/types';
 
 
@@ -66,6 +66,7 @@ export async function getElectionRooms(): Promise<ElectionRoom[]> {
       description: data.description || "No description provided.",
       isAccessRestricted: data.isAccessRestricted === true, // Ensure boolean
       accessCode: data.accessCode || undefined,
+      deletionPassword: data.deletionPassword,
       positions: positions,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -144,6 +145,7 @@ export async function getElectionRoomById(roomId: string, options: { withVoteCou
     description: data.description || "No description.",
     isAccessRestricted: data.isAccessRestricted === true, // Ensure boolean
     accessCode: data.accessCode || undefined,
+    deletionPassword: data.deletionPassword,
     positions: positions,
     createdAt: createdAt,
     updatedAt: updatedAt,
@@ -216,7 +218,6 @@ export async function recordUserVote(roomId: string, userEmail: string, votes: R
   });
 }
 
-
 export async function verifyRoomAccess(formData: FormData): Promise<{ success: boolean; message: string; roomId?: string; }> {
   const roomId = formData.get('roomId') as string;
   const accessCode = formData.get('accessCode') as string;
@@ -241,4 +242,34 @@ export async function verifyRoomAccess(formData: FormData): Promise<{ success: b
   }
   
   return { success: true, message: "Access granted.", roomId: room.id };
+}
+
+export async function deleteElectionRoom(roomId: string, passwordAttempt: string): Promise<{ success: boolean; message: string }> {
+    const roomRef = doc(db, "electionRooms", roomId);
+    
+    try {
+        const roomSnap = await getDoc(roomRef);
+        if (!roomSnap.exists()) {
+            return { success: false, message: "Room not found. It may have already been deleted." };
+        }
+        
+        const roomData = roomSnap.data();
+        if (roomData.deletionPassword !== passwordAttempt) {
+            return { success: false, message: "Incorrect deletion password." };
+        }
+        
+        // This is a simple deletion. For production, you might want to also delete subcollections (votes, voters) recursively.
+        // This requires a Cloud Function for full recursive deletion. For now, we delete the main document.
+        await deleteDoc(roomRef);
+        
+        return { success: true, message: "Voting room successfully deleted." };
+
+    } catch (error: any) {
+        console.error("Error deleting room:", error);
+        // Check for permission errors specifically, though rules should allow it.
+        if (error.code === 'permission-denied') {
+            return { success: false, message: "You do not have permission to delete this room." };
+        }
+        return { success: false, message: "An unexpected error occurred while deleting the room." };
+    }
 }
