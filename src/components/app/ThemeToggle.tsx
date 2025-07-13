@@ -22,9 +22,9 @@ export function ThemeToggle() {
   }, [])
 
   if (!mounted) {
-    // On the server and during initial client render, render a placeholder or nothing
-    // to prevent hydration mismatch. A button placeholder keeps the layout consistent.
-    return <Button variant="ghost" size="icon" disabled></Button>
+    // Render null on the server and during the initial client render
+    // to prevent hydration mismatch.
+    return null;
   }
 
   return (
