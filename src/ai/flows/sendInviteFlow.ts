@@ -51,9 +51,9 @@ const sendInviteFlow = ai.defineFlow(
     // It's hardcoded here for simplicity of the example.
     const JWT_SECRET = 'your-super-secret-key-that-is-long-and-secure';
     
-    // Use a dynamic approach for the base URL. In a development environment, NEXT_PUBLIC_BASE_URL might not be set.
-    // Fallback to a relative path if the full URL isn't available, which works in most modern browsers.
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+    // Using a relative path for the link ensures it works in any environment (dev, staging, prod)
+    // without needing to know the full base URL. The browser handles the resolution.
+    const baseUrl = '';
 
     try {
       // 1. Get room details to use in the email

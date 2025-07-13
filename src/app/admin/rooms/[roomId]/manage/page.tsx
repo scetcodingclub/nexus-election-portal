@@ -53,6 +53,7 @@ export default function ManageElectionRoomPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [generatedInvite, setGeneratedInvite] = useState<SendInviteOutput | null>(null);
   
   const form = useForm<InviteFormValues>({
     resolver: zodResolver(inviteSchema),
@@ -126,39 +127,41 @@ export default function ManageElectionRoomPage() {
           <Mail className="h-4 w-4" />
           <AlertTitle className="flex justify-between items-center">
             <span>Email for: {result.email.subject.split(' for ')[1]}</span>
-            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(result.email.subject, "Subject")}>
-                <Copy className="mr-2 h-3 w-3" /> Copy Subject
-            </Button>
           </AlertTitle>
           <AlertDescription>
-            <p className="font-semibold">{result.email.subject}</p>
+            <div className="space-y-2 mt-2">
+                <p className="font-semibold">Subject:</p>
+                <div className="flex items-center gap-2">
+                    <p className="flex-grow p-2 bg-muted rounded text-sm">{result.email.subject}</p>
+                    <Button variant="ghost" size="sm" onClick={() => copyToClipboard(result.email.subject, "Subject")}>
+                        <Copy className="mr-2 h-3 w-3" /> Copy
+                    </Button>
+                </div>
+            </div>
           </AlertDescription>
         </Alert>
         <Alert>
-          <AlertTitle className="flex justify-between items-center">
-            <span>Email Body</span>
-             <Button variant="ghost" size="sm" onClick={() => copyToClipboard(result.email.body, "Email Body")}>
+          <AlertTitle>Email Body</AlertTitle>
+          <AlertDescription className="space-y-2 mt-2">
+             <p className="whitespace-pre-wrap text-sm p-3 bg-muted rounded">{result.email.body}</p>
+             <Button variant="outline" className="w-full" size="sm" onClick={() => copyToClipboard(result.email.body, "Email Body")}>
                 <Copy className="mr-2 h-3 w-3" /> Copy Body
             </Button>
-          </AlertTitle>
-          <AlertDescription>
-            <p className="whitespace-pre-wrap text-sm">{result.email.body}</p>
           </AlertDescription>
         </Alert>
          <Alert>
-          <AlertTitle className="flex justify-between items-center">
-            <span>Unique Invite Link</span>
-             <Button variant="ghost" size="sm" onClick={() => copyToClipboard(result.inviteLink, "Invite Link")}>
-                <Copy className="mr-2 h-3 w-3" /> Copy Link
-            </Button>
-          </AlertTitle>
+          <AlertTitle>Unique Invite Link</AlertTitle>
           <AlertDescription>
-            <code className="text-xs bg-muted p-2 rounded break-all block">{result.inviteLink}</code>
+            <div className="flex items-center gap-2 mt-2">
+                <code className="text-xs bg-muted p-2 rounded break-all block flex-grow">{result.inviteLink}</code>
+                <Button variant="ghost" size="sm" onClick={() => copyToClipboard(result.inviteLink, "Invite Link")}>
+                    <Copy className="mr-2 h-3 w-3" /> Copy
+                </Button>
+            </div>
           </AlertDescription>
         </Alert>
       </div>
   );
-
 
   const onInviteSubmit: SubmitHandler<InviteFormValues> = async (data) => {
     const voterEmail = data.email;
@@ -173,25 +176,13 @@ export default function ManageElectionRoomPage() {
 
     try {
         const result = await sendInvite({ roomId, email: voterEmail });
-        
-        toast({
-            title: "Invite Generated Successfully!",
-            description: `Email content for ${voterEmail} is ready. Copy and send it via your email client.`,
-            duration: 15000, // longer duration for copy/paste
-            action: (
-              <div className="w-full">
-                <EmailDisplay result={result} />
-              </div>
-            ),
-            className: "w-[400px] md:w-[500px] lg:w-[600px]", // Custom width for the toast
-        });
-        
+        setGeneratedInvite(result); // Store the result to show in the dialog
         await refreshVoters();
-        setIsInviteDialogOpen(false);
         form.reset();
 
     } catch (error: any) {
         console.error("Error sending invite:", error);
+        setGeneratedInvite(null);
         toast({
             variant: "destructive",
             title: "Invitation Failed",
@@ -199,6 +190,12 @@ export default function ManageElectionRoomPage() {
         });
     }
   };
+
+  const resetInviteDialog = () => {
+    setIsInviteDialogOpen(false);
+    setGeneratedInvite(null);
+    form.reset();
+  }
 
 
   if (loading) {
@@ -300,39 +297,59 @@ export default function ManageElectionRoomPage() {
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
               <Button disabled><Upload className="mr-2 h-4 w-4" /> Upload CSV (Soon)</Button>
-               <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+               <Dialog open={isInviteDialogOpen} onOpenChange={(open) => {
+                  if (!open) resetInviteDialog();
+                  setIsInviteDialogOpen(open);
+               }}>
                 <DialogTrigger asChild>
                   <Button><Send className="mr-2 h-4 w-4" /> Send Invite</Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <form onSubmit={form.handleSubmit(onInviteSubmit)}>
-                    <DialogHeader>
-                      <DialogTitle>Send Invitation</DialogTitle>
-                      <DialogDescription>
-                        Enter the email of the voter to generate a unique voting invitation.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="email" className="text-right">
-                          Email
-                        </Label>
-                        <Input
-                          id="email"
-                          placeholder="voter@example.com"
-                          className="col-span-3"
-                          {...form.register("email")}
-                        />
+                <DialogContent className="sm:max-w-[425px] md:max-w-[600px]">
+                  {generatedInvite ? (
+                    <>
+                      <DialogHeader>
+                        <DialogTitle>Invite Generated Successfully!</DialogTitle>
+                        <DialogDescription>
+                          Copy the content below and send it to the voter via your email client.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <EmailDisplay result={generatedInvite} />
+                      <DialogFooter>
+                        <Button variant="outline" onClick={resetInviteDialog}>
+                          Close
+                        </Button>
+                      </DialogFooter>
+                    </>
+                  ) : (
+                    <form onSubmit={form.handleSubmit(onInviteSubmit)}>
+                      <DialogHeader>
+                        <DialogTitle>Send Invitation</DialogTitle>
+                        <DialogDescription>
+                          Enter the email of the voter to generate a unique voting invitation.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="email" className="text-right">
+                            Email
+                          </Label>
+                          <Input
+                            id="email"
+                            placeholder="voter@example.com"
+                            className="col-span-3"
+                            {...form.register("email")}
+                          />
+                        </div>
+                         {form.formState.errors.email && <p className="col-span-4 text-center text-sm text-destructive">{form.formState.errors.email.message}</p>}
                       </div>
-                       {form.formState.errors.email && <p className="col-span-4 text-center text-sm text-destructive">{form.formState.errors.email.message}</p>}
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit" disabled={isSendingInvite}>
-                        {isSendingInvite && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Generate Invite
-                      </Button>
-                    </DialogFooter>
-                  </form>
+                      <DialogFooter>
+                        <Button type="submit" disabled={isSendingInvite}>
+                          {isSendingInvite && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Generate Invite
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  )}
                 </DialogContent>
               </Dialog>
           </div>
@@ -370,5 +387,3 @@ export default function ManageElectionRoomPage() {
     </>
   );
 }
-
-    
