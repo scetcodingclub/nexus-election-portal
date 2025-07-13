@@ -87,9 +87,11 @@ export default function ManageElectionRoomPage() {
     return notFound(); 
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
-  const voterLink = `${baseUrl}/vote/${room.id}`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voterLink)}`;
+  // Use a relative path for the link to ensure it works in any environment.
+  // The full URL for the QR code will be resolved by the browser.
+  const voterPath = `/vote/${room.id}`;
+  const absoluteVoterLink = typeof window !== 'undefined' ? `${window.location.origin}${voterPath}` : '';
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(absoluteVoterLink)}`;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -136,8 +138,7 @@ export default function ManageElectionRoomPage() {
         <CardHeader>
           <CardTitle className="text-xl font-headline">Access & Sharing</CardTitle>
           <CardDescription>
-            Share this room with voters. For the link and QR code to work correctly when your app is deployed,
-            ensure your <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_BASE_URL</code> environment variable is set to your app's public URL.
+            Share this room with voters. The link and QR code will work correctly in this environment and when your app is deployed.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -153,21 +154,23 @@ export default function ManageElectionRoomPage() {
               </div>
             </AlertDescription>
           </Alert>
-          <ShareableLinkDisplay voterLink={voterLink} />
+          <ShareableLinkDisplay voterLink={voterPath} />
           <Alert variant="default" className="border-primary/30">
              <QrCode className="h-4 w-4" />
             <AlertTitle>QR Code for Voters</AlertTitle>
             <AlertDescription>
               Voters can scan this QR code with their mobile devices to directly access the voting page.
               <div className="mt-2 p-4 bg-muted rounded flex items-center justify-center">
-                 <Image 
-                    src={qrCodeUrl} 
-                    alt={`QR Code for election: ${room.title}`} 
-                    width={150} 
-                    height={150} 
-                    data-ai-hint="qr code election"
-                    className="rounded-md"
-                  />
+                 {absoluteVoterLink && (
+                  <Image 
+                      src={qrCodeUrl} 
+                      alt={`QR Code for election: ${room.title}`} 
+                      width={150} 
+                      height={150} 
+                      data-ai-hint="qr code election"
+                      className="rounded-md"
+                    />
+                 )}
               </div>
             </AlertDescription>
           </Alert>
@@ -176,3 +179,4 @@ export default function ManageElectionRoomPage() {
     </div>
   );
 }
+
