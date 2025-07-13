@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function VotingSkeleton() {
   return (
@@ -204,6 +205,20 @@ const GuidelinesScreen = ({
 }) => {
     const [email, setEmail] = useState("");
     const [isEmailValid, setIsEmailValid] = useState(false);
+    
+    // State for checkboxes
+    const [rulesAcknowledged, setRulesAcknowledged] = useState({
+      rule1: false,
+      rule2: false,
+      rule3: false,
+      rule4: false,
+    });
+    
+    const handleCheckboxChange = (rule: keyof typeof rulesAcknowledged) => {
+        setRulesAcknowledged(prev => ({...prev, [rule]: !prev[rule]}));
+    };
+    
+    const allRulesChecked = Object.values(rulesAcknowledged).every(Boolean);
 
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
@@ -225,28 +240,35 @@ const GuidelinesScreen = ({
                     <Info className="h-4 w-4" />
                     <AlertTitle>⚠️ General Guidelines (Applicable to Both Rooms)</AlertTitle>
                     <AlertDescription>
-                       <ul className="list-disc pl-5 space-y-2 mt-2 text-sm">
-                          <li><span className="font-semibold">✅ Only authorized voters/reviewers are allowed</span> - your access has been granted based on your email.</li>
-                          <li><span className="font-semibold">❗ You can enter the room only once.</span> Make sure you’re ready before clicking “Start”.</li>
-                          <li><span className="font-semibold">🕐 Complete your review or vote in one sitting.</span> Refreshing or exiting may lock your session.</li>
-                          <li><span className="font-semibold">🧑‍⚖️ You are expected to maintain honesty and neutrality</span> while reviewing or voting.</li>
-                          <li><span className="font-semibold">❌ Sharing or discussing your vote or review</span> with others during the process is prohibited.</li>
-                          <li><span className="font-semibold">💬 Suggestions or doubts</span> must be raised with the Election Admin before entering.</li>
-                          <li><span className="font-semibold">📡 Stable internet connection is recommended</span> to avoid disconnection or loss of input.</li>
-                          <li><span className="font-semibold">🛑 Once submitted, no changes can be made</span> to your response.</li>
+                       <ul className="space-y-3 mt-4 text-xs sm:text-sm">
+                          <li className="flex items-start gap-3">
+                            <Checkbox id="rule1" checked={rulesAcknowledged.rule1} onCheckedChange={() => handleCheckboxChange('rule1')} className="mt-0.5" />
+                            <label htmlFor="rule1" className="flex-1"><span className="font-semibold">Only authorized members are allowed.</span> Your access has been granted based on your email.</label>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <Checkbox id="rule2" checked={rulesAcknowledged.rule2} onCheckedChange={() => handleCheckboxChange('rule2')} className="mt-0.5" />
+                            <label htmlFor="rule2" className="flex-1"><span className="font-semibold">You can enter the room only once.</span> Make sure you’re ready before clicking “Start”. Refreshing or exiting may lock your session.</label>
+                          </li>
+                           <li className="flex items-start gap-3">
+                            <Checkbox id="rule3" checked={rulesAcknowledged.rule3} onCheckedChange={() => handleCheckboxChange('rule3')} className="mt-0.5" />
+                            <label htmlFor="rule3" className="flex-1"><span className="font-semibold">Maintain honesty and neutrality</span> while reviewing or voting. Sharing or discussing your vote/review is prohibited.</label>
+                          </li>
+                          <li className="flex items-start gap-3">
+                            <Checkbox id="rule4" checked={rulesAcknowledged.rule4} onCheckedChange={() => handleCheckboxChange('rule4')} className="mt-0.5" />
+                            <label htmlFor="rule4" className="flex-1"><span className="font-semibold">Once submitted, no changes can be made.</span> Ensure you have a stable internet connection.</label>
+                          </li>
                        </ul>
                     </AlertDescription>
                 </Alert>
-
+                
                 {room.roomType === 'voting' && (
                   <Alert variant="default" className="border-green-500/30">
                     <Info className="h-4 w-4" />
                     <AlertTitle>Voting Room – Specific Rules</AlertTitle>
                     <AlertDescription>
-                       <ul className="list-disc pl-5 space-y-2 mt-2 text-sm">
+                       <ul className="list-disc pl-5 space-y-2 mt-2 text-xs sm:text-sm">
                           <li><span className="font-semibold">🗳️ You are here to cast your vote</span> — selecting who you support or oppose.</li>
                           <li><span className="font-semibold">✋ Voting is binary:</span> Yes (Support) or No (Do not support).</li>
-                          <li><span className="font-semibold">🚫 Once you vote, you cannot review</span> the same person again.</li>
                           <li><span className="font-semibold">📥 Every vote is final</span> and securely recorded in the election system.</li>
                        </ul>
                     </AlertDescription>
@@ -275,7 +297,7 @@ const GuidelinesScreen = ({
                     />
                 </div>
                 
-                <Button size="lg" className="w-full" disabled={!isEmailValid} onClick={() => onStart(email)}>
+                <Button size="lg" className="w-full" disabled={!isEmailValid || !allRulesChecked} onClick={() => onStart(email)}>
                     <ArrowRight className="mr-2 h-5 w-5" />
                     {startButtonText}
                 </Button>
