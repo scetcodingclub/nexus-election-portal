@@ -8,7 +8,7 @@ export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] py-12">
       <div className="text-center mb-12">
-        <h1 className="text-5xl font-bold font-headline mb-4">
+        <h1 className="text-5xl font-bold font-headline mb-4 animate-fade-in-up">
           Welcome to <span className="text-primary">N.E.X.U.S</span> Election Board
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
