@@ -10,10 +10,9 @@ import type { ElectionRoom, Voter } from "@/lib/types";
 
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, BarChart3, Fingerprint, Users, AlertTriangle, Mail, Send, Upload, Loader2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, Fingerprint, Users, AlertTriangle, Mail, Send, Upload, Loader2, Copy } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Loading from './loading';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -27,13 +26,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { sendInvite } from "@/ai/flows/sendInviteFlow";
+import { sendInvite, type SendInviteOutput } from "@/ai/flows/sendInviteFlow";
 
 
 const inviteSchema = z.object({
@@ -111,6 +111,55 @@ export default function ManageElectionRoomPage() {
     }
   };
 
+  const copyToClipboard = (text: string, type: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+        toast({ title: `${type} Copied!`, description: `The ${type.toLowerCase()} has been copied to your clipboard.` });
+    }).catch(err => {
+        console.error(`Failed to copy ${type}: `, err);
+        toast({ variant: "destructive", title: "Copy Failed", description: `Could not copy the ${type.toLowerCase()}.` });
+    });
+  };
+
+  const EmailDisplay = ({ result }: { result: SendInviteOutput }) => (
+      <div className="space-y-4 max-h-[50vh] overflow-y-auto p-1">
+        <Alert>
+          <Mail className="h-4 w-4" />
+          <AlertTitle className="flex justify-between items-center">
+            <span>Email for: {result.email.subject.split(' for ')[1]}</span>
+            <Button variant="ghost" size="sm" onClick={() => copyToClipboard(result.email.subject, "Subject")}>
+                <Copy className="mr-2 h-3 w-3" /> Copy Subject
+            </Button>
+          </AlertTitle>
+          <AlertDescription>
+            <p className="font-semibold">{result.email.subject}</p>
+          </AlertDescription>
+        </Alert>
+        <Alert>
+          <AlertTitle className="flex justify-between items-center">
+            <span>Email Body</span>
+             <Button variant="ghost" size="sm" onClick={() => copyToClipboard(result.email.body, "Email Body")}>
+                <Copy className="mr-2 h-3 w-3" /> Copy Body
+            </Button>
+          </AlertTitle>
+          <AlertDescription>
+            <p className="whitespace-pre-wrap text-sm">{result.email.body}</p>
+          </AlertDescription>
+        </Alert>
+         <Alert>
+          <AlertTitle className="flex justify-between items-center">
+            <span>Unique Invite Link</span>
+             <Button variant="ghost" size="sm" onClick={() => copyToClipboard(result.inviteLink, "Invite Link")}>
+                <Copy className="mr-2 h-3 w-3" /> Copy Link
+            </Button>
+          </AlertTitle>
+          <AlertDescription>
+            <code className="text-xs bg-muted p-2 rounded break-all block">{result.inviteLink}</code>
+          </AlertDescription>
+        </Alert>
+      </div>
+  );
+
+
   const onInviteSubmit: SubmitHandler<InviteFormValues> = async (data) => {
     const voterEmail = data.email;
     if (voters.some(v => v.email === voterEmail)) {
@@ -126,12 +175,15 @@ export default function ManageElectionRoomPage() {
         const result = await sendInvite({ roomId, email: voterEmail });
         
         toast({
-            title: "Invite Link Generated",
-            description: `A unique link has been created for ${voterEmail}. Please send it to them manually.`,
-            duration: 9000,
+            title: "Invite Generated Successfully!",
+            description: `Email content for ${voterEmail} is ready. Copy and send it via your email client.`,
+            duration: 15000, // longer duration for copy/paste
             action: (
-              <textarea readOnly value={result.inviteLink} className="w-full h-20 bg-muted text-muted-foreground p-2 rounded-md text-xs" />
-            )
+              <div className="w-full">
+                <EmailDisplay result={result} />
+              </div>
+            ),
+            className: "w-[400px] md:w-[500px] lg:w-[600px]", // Custom width for the toast
         });
         
         await refreshVoters();
@@ -143,7 +195,7 @@ export default function ManageElectionRoomPage() {
         toast({
             variant: "destructive",
             title: "Invitation Failed",
-            description: error.message || "Could not generate an invitation link. Please try again.",
+            description: error.message || "Could not generate an invitation. Please try again.",
         });
     }
   };
@@ -257,7 +309,7 @@ export default function ManageElectionRoomPage() {
                     <DialogHeader>
                       <DialogTitle>Send Invitation</DialogTitle>
                       <DialogDescription>
-                        Enter the email of the voter to send them a unique and secure voting link.
+                        Enter the email of the voter to generate a unique voting invitation.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -277,7 +329,7 @@ export default function ManageElectionRoomPage() {
                     <DialogFooter>
                       <Button type="submit" disabled={isSendingInvite}>
                         {isSendingInvite && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Generate Invite Link
+                        Generate Invite
                       </Button>
                     </DialogFooter>
                   </form>

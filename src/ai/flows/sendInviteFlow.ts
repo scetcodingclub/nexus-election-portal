@@ -1,9 +1,9 @@
 
 'use server';
 /**
- * @fileOverview A flow for generating voter invitation links.
+ * @fileOverview A flow for generating voter invitation links and email content.
  *
- * - sendInvite - A function that generates a secure link and adds a voter to the voter pool.
+ * - sendInvite - A function that generates a secure link, creates email content, and adds a voter to the voter pool.
  * - SendInviteInput - The input type for the sendInvite function.
  * - SendInviteOutput - The return type for the sendInvite function.
  */
@@ -11,8 +11,9 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 import { db } from '@/lib/firebaseClient';
-import { doc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, setDoc, Timestamp, getDoc } from 'firebase/firestore';
 import jwt from 'jsonwebtoken';
+import { generateInviteEmail } from './generateInviteEmailFlow';
 
 const SendInviteInputSchema = z.object({
   roomId: z.string().describe("The ID of the election room."),
@@ -24,6 +25,10 @@ const SendInviteOutputSchema = z.object({
   success: z.boolean(),
   message: z.string(),
   inviteLink: z.string().url(),
+  email: z.object({
+    subject: z.string(),
+    body: z.string(),
+  }),
 });
 export type SendInviteOutput = z.infer<typeof SendInviteOutputSchema>;
 
@@ -48,7 +53,15 @@ const sendInviteFlow = ai.defineFlow(
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
     try {
-      // 1. Add/update the voter in the Firestore subcollection
+      // 1. Get room details to use in the email
+      const roomRef = doc(db, "electionRooms", roomId);
+      const roomSnap = await getDoc(roomRef);
+      if (!roomSnap.exists()) {
+        throw new Error(`Election room with ID ${roomId} not found.`);
+      }
+      const roomTitle = roomSnap.data().title || "N/A";
+
+      // 2. Add/update the voter in the Firestore subcollection
       const voterRef = doc(db, "electionRooms", roomId, "voters", email);
       await setDoc(voterRef, {
         email: email,
@@ -56,20 +69,24 @@ const sendInviteFlow = ai.defineFlow(
         invitedAt: Timestamp.now(),
       }, { merge: true });
 
-      // 2. Generate a secure token for the voter
+      // 3. Generate a secure token for the voter
       const token = jwt.sign({ email, roomId }, JWT_SECRET, { expiresIn: '7d' });
 
-      // 3. Construct the unique invite link
+      // 4. Construct the unique invite link
       const inviteLink = `${baseUrl}/vote/${roomId}/waiting?token=${token}`;
 
-      // In a real application, you would add a step here to send an email
-      // to the user with this link using a service like SendGrid, Nodemailer, etc.
-      // For this example, we will just return the link to the admin.
-
+      // 5. Generate the email content using another flow
+      const emailContent = await generateInviteEmail({
+        voterEmail: email,
+        electionName: roomTitle,
+        inviteLink: inviteLink
+      });
+      
       return {
         success: true,
-        message: `Successfully generated invite link for ${email}.`,
+        message: `Successfully generated invite for ${email}.`,
         inviteLink: inviteLink,
+        email: emailContent,
       };
 
     } catch (error: any) {
