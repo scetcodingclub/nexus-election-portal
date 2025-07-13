@@ -3,6 +3,31 @@ import { db } from "@/lib/firebaseClient";
 import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc, updateDoc, setDoc } from "firebase/firestore";
 import type { ElectionRoom, Voter } from '@/lib/types';
 
+export async function addUserToVoterPool(roomId: string, userEmail: string): Promise<void> {
+    const voterRef = doc(db, "electionRooms", roomId, "voters", userEmail);
+    const voterSnap = await getDoc(voterRef);
+
+    if (!voterSnap.exists()) {
+        await setDoc(voterRef, {
+            email: userEmail,
+            status: 'invited', // 'invited' is a good default status for someone joining this way
+            invitedAt: Timestamp.now(),
+        });
+    }
+    // If user already exists, we don't need to do anything.
+    // The checkUserHasVoted function will prevent them from voting again.
+}
+
+export async function checkUserHasVoted(roomId: string, userEmail: string): Promise<boolean> {
+  const userVoteRef = doc(db, "electionRooms", roomId, "voters", userEmail);
+  const userVoteSnap = await getDoc(userVoteRef);
+  
+  if (userVoteSnap.exists() && userVoteSnap.data().status === 'voted') {
+    return true;
+  }
+  
+  return false;
+}
 
 export async function getElectionRooms(): Promise<ElectionRoom[]> {
   const electionRoomsCol = collection(db, "electionRooms");

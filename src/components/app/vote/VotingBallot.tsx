@@ -14,12 +14,10 @@ import { CheckCircle, Loader2, Lock, AlertTriangle, ArrowLeft } from "lucide-rea
 import { cn } from "@/lib/utils";
 import { recordUserVote, getElectionRoomById, getVoter, updateUserStatus } from "@/lib/electionRoomService";
 import { Skeleton } from "@/components/ui/skeleton";
-import jwt from 'jsonwebtoken';
 
 
 interface VotingBallotProps {
   roomId: string;
-  token: string;
 }
 
 function BallotLoadingSkeleton() {
@@ -48,9 +46,10 @@ function BallotLoadingSkeleton() {
     );
 }
 
-export default function VotingBallot({ roomId, token }: VotingBallotProps) {
+export default function VotingBallot({ roomId }: VotingBallotProps) {
   const [room, setRoom] = useState<ElectionRoom | null>(null);
   const [voter, setVoter] = useState<Voter | null>(null);
+  const [voterEmail, setVoterEmail] = useState<string | null>(null);
   const [selectedVotes, setSelectedVotes] = useState<Record<string, string>>({}); // positionId: candidateId
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -60,19 +59,19 @@ export default function VotingBallot({ roomId, token }: VotingBallotProps) {
   const router = useRouter();
   
   useEffect(() => {
+    const email = localStorage.getItem(`voterEmail-${roomId}`);
+    if (!email) {
+      setError("Voter email not found. Please start over.");
+      setIsInitializing(false);
+      return;
+    }
+    setVoterEmail(email);
+
     async function initializeBallot() {
       try {
-        // 1. Verify Token and get voter email
-        // In a real app, the secret should be in an environment variable
-        const decoded = jwt.verify(token, 'your-super-secret-key-that-is-long-and-secure') as { email: string, roomId: string };
-        if (decoded.roomId !== roomId) {
-            throw new Error("Token is not valid for this election room.");
-        }
-        const voterEmail = decoded.email;
-
-        // 2. Fetch voter and room data
+        // 1. Fetch room and voter data
         const [voterData, roomData] = await Promise.all([
-          getVoter(roomId, voterEmail),
+          getVoter(roomId, email),
           getElectionRoomById(roomId)
         ]);
         
@@ -92,18 +91,12 @@ export default function VotingBallot({ roomId, token }: VotingBallotProps) {
         setVoter(voterData);
         setRoom(roomData);
         
-        // 3. Update voter status to "voting"
-        if (voterData.status !== 'voting') {
-            await updateUserStatus(roomId, voterEmail, 'voting');
-        }
+        // 2. Update voter status to "voting"
+        await updateUserStatus(roomId, email, 'voting');
 
       } catch (err: any) {
         console.error("Error initializing ballot:", err);
-        if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
-             setError("Your voting link is invalid or has expired. Please request a new one.");
-        } else {
-            setError(err.message || "An unexpected error occurred while loading the ballot.");
-        }
+        setError(err.message || "An unexpected error occurred while loading the ballot.");
       } finally {
         setIsInitializing(false);
       }
@@ -111,7 +104,7 @@ export default function VotingBallot({ roomId, token }: VotingBallotProps) {
     
     initializeBallot();
 
-  }, [roomId, token, router]);
+  }, [roomId, router]);
 
   const handleVoteChange = (positionId: string, candidateId: string) => {
     if (lockedPositions.has(positionId)) return;
@@ -128,7 +121,7 @@ export default function VotingBallot({ roomId, token }: VotingBallotProps) {
   };
 
   const handleSubmitAllVotes = async () => {
-    if (!room || !voter) return;
+    if (!room || !voterEmail) return;
     if (Object.keys(selectedVotes).length !== room.positions.length) {
       toast({ variant: "destructive", title: "Incomplete Ballot", description: `Please cast your vote for all ${room.positions.length} positions. You have voted for ${Object.keys(selectedVotes).length}.` });
       return;
@@ -142,7 +135,8 @@ export default function VotingBallot({ roomId, token }: VotingBallotProps) {
 
     setIsLoading(true);
     try {
-      await recordUserVote(roomId, voter.email, selectedVotes);
+      await recordUserVote(roomId, voterEmail, selectedVotes);
+      localStorage.removeItem(`voterEmail-${roomId}`); // Clean up local storage
       toast({ title: "Votes Submitted!", description: "Thank you for participating in the election.", className: "bg-primary text-primary-foreground" });
       router.push(`/vote/${roomId}/thank-you`);
     } catch (error) {
@@ -169,10 +163,10 @@ export default function VotingBallot({ roomId, token }: VotingBallotProps) {
                     <CardDescription>{error}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button asChild variant="outline" onClick={() => router.push('/vote')}>
+                    <Button asChild variant="outline" onClick={() => router.push(`/vote/${roomId}`)}>
                         <>
                           <ArrowLeft className="mr-2 h-4 w-4" />
-                          Return to Voter Access
+                          Return to Voter Entry
                         </>
                     </Button>
                 </CardContent>

@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Loader2, ArrowRight } from "lucide-react";
-import { checkUserHasVoted } from "@/lib/electionRoomService"; // Import the check
+import { checkUserHasVoted, addUserToVoterPool } from "@/lib/electionRoomService";
 
 const emailFormSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -52,6 +52,9 @@ export default function VoterEmailForm({ roomId }: VoterEmailFormProps) {
         setIsLoading(false);
         return;
       }
+      
+      // Add user to the voter pool if they don't exist
+      await addUserToVoterPool(roomId, values.email);
 
       // Store email in local storage to pass to the ballot page
       localStorage.setItem(`voterEmail-${roomId}`, values.email);
@@ -61,12 +64,12 @@ export default function VoterEmailForm({ roomId }: VoterEmailFormProps) {
         description: "Proceeding to ballot...",
       });
       router.push(`/vote/${roomId}/ballot`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error checking voter status or proceeding:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Could not verify your status. Please try again.",
+        description: error.message || "Could not verify your status. Please try again.",
       });
     } finally {
       setIsLoading(false);
