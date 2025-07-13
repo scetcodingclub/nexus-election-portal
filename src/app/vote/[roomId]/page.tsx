@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Send, ArrowRight, ArrowLeft, ThumbsUp, ThumbsDown, Loader2 } from "lucide-react";
+import { Check, Send, ArrowRight, ArrowLeft, ThumbsUp, ThumbsDown, Loader2, Info, ShieldCheck } from "lucide-react";
 import StarRating from "@/components/app/StarRating";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -195,6 +195,74 @@ const ReviewPositionCard = ({
   </Card>
 );
 
+const GuidelinesScreen = ({
+  room,
+  onStart,
+}: {
+  room: ElectionRoom,
+  onStart: (email: string) => void
+}) => {
+    const [email, setEmail] = useState("");
+    const [isEmailValid, setIsEmailValid] = useState(false);
+
+    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newEmail = e.target.value;
+        setEmail(newEmail);
+        // Simple regex for email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        setIsEmailValid(emailRegex.test(newEmail));
+    }
+
+    const startButtonText = room.roomType === 'review' ? 'Start Review' : 'Start Voting';
+
+    return (
+        <Card className="max-w-2xl mx-auto shadow-lg">
+            <CardHeader className="text-center">
+                <CardTitle className="text-2xl sm:text-3xl font-headline">Welcome to {room.title}</CardTitle>
+                <CardDescription>{room.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <Alert variant="default" className="border-primary/30">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Rules & Guidelines</AlertTitle>
+                    <AlertDescription>
+                       <ul className="list-disc pl-5 space-y-1 mt-2">
+                          <li>Please review each position and candidate carefully.</li>
+                          <li>Your submission is final and cannot be changed.</li>
+                       </ul>
+                    </AlertDescription>
+                </Alert>
+                 <Alert variant="default" className="border-green-500/30">
+                    <ShieldCheck className="h-4 w-4 text-green-600" />
+                    <AlertTitle>Your Privacy is Protected</AlertTitle>
+                    <AlertDescription>
+                        To ensure fairness, we require your email to prevent multiple submissions. 
+                        However, your vote/review itself is **completely anonymous**. Your email will not be linked to your specific choices.
+                    </AlertDescription>
+                </Alert>
+
+                <div className="space-y-2">
+                    <Label htmlFor="voter-email">Enter Your Email to Proceed</Label>
+                    <Input 
+                        id="voter-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={handleEmailChange}
+                        autoFocus
+                    />
+                </div>
+                
+                <Button size="lg" className="w-full" disabled={!isEmailValid} onClick={() => onStart(email)}>
+                    <ArrowRight className="mr-2 h-5 w-5" />
+                    {startButtonText}
+                </Button>
+            </CardContent>
+        </Card>
+    );
+};
+
+
 export default function VotingPage() {
   const params = useParams();
   const router = useRouter();
@@ -204,9 +272,12 @@ export default function VotingPage() {
   const [room, setRoom] = useState<ElectionRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [hasStarted, setHasStarted] = useState(false);
+  const [voterEmail, setVoterEmail] = useState("");
+  
   const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
   const [selections, setSelections] = useState<Record<string, any>>({});
-  const [voterEmail, setVoterEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionComplete, setSubmissionComplete] = useState(false);
 
@@ -241,6 +312,11 @@ export default function VotingPage() {
         .finally(() => setLoading(false));
     }
   }, [roomId]);
+
+  const handleStart = (email: string) => {
+    setVoterEmail(email);
+    setHasStarted(true);
+  };
   
   const handleVoteSelection = (selectionValue: any) => {
     if (!room) return;
@@ -251,6 +327,8 @@ export default function VotingPage() {
       setTimeout(() => {
         if (currentPositionIndex < room.positions.length - 1) {
           setCurrentPositionIndex(currentPositionIndex + 1);
+        } else {
+          handleSubmit(); // Auto-submit on last selection
         }
       }, 300);
     }
@@ -289,9 +367,20 @@ export default function VotingPage() {
   
   const handleSubmit = async () => {
     if (!room || !voterEmail) {
-        toast({ variant: "destructive", title: "Missing Information", description: "Please enter your email to submit." });
+        toast({ variant: "destructive", title: "Missing Information", description: "Something went wrong, email not found." });
         return;
     }
+
+    // Final validation for review rooms before submitting
+    if (room.roomType === 'review') {
+      const currentPositionId = room.positions[currentPositionIndex].id;
+      const currentReview = selections[currentPositionId];
+      if (!currentReview || currentReview.rating === 0 || !currentReview.feedback.trim()) {
+        toast({ variant: "destructive", title: "Incomplete Final Step", description: "Please provide a rating and feedback for the last item." });
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     let result;
     if (room.roomType === 'review') {
@@ -325,6 +414,10 @@ export default function VotingPage() {
     );
   }
   if (!room) return notFound();
+
+  if (!hasStarted) {
+      return <GuidelinesScreen room={room} onStart={handleStart} />;
+  }
 
   if (submissionComplete) {
     return (
@@ -419,31 +512,10 @@ export default function VotingPage() {
         </div>
         
         {isLastPosition && (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Final Step: Submit</CardTitle>
-                    <CardDescription>
-                        To complete your submission, please enter your email address below. This is used to ensure one submission per person.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <Label htmlFor="voter-email">Your Email Address</Label>
-                        <Input 
-                            id="voter-email"
-                            type="email"
-                            placeholder="you@example.com"
-                            value={voterEmail}
-                            onChange={(e) => setVoterEmail(e.target.value)}
-                            disabled={isSubmitting}
-                        />
-                    </div>
-                    <Button size="lg" className="w-full" disabled={isSubmitting || !voterEmail} onClick={handleSubmit}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (room.roomType === 'review' ? <Send className="mr-2 h-5 w-5" /> : <Check className="mr-2 h-5 w-5" />)}
-                    Submit {room.roomType === 'review' ? 'Review' : 'Ballot'}
-                    </Button>
-                </CardContent>
-            </Card>
+            <Button size="lg" className="w-full" disabled={isSubmitting} onClick={handleSubmit}>
+            {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : (room.roomType === 'review' ? <Send className="mr-2 h-5 w-5" /> : <Check className="mr-2 h-5 w-5" />)}
+            Submit {room.roomType === 'review' ? 'Review' : 'Ballot'}
+            </Button>
         )}
       </div>
     </div>
