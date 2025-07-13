@@ -34,6 +34,14 @@ const StarRating = ({
     }
   };
 
+  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>, index: number) => {
+    if (disabled) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const isOverHalf = (e.clientX - rect.left) > rect.width / 2;
+    setHoverRating(index + (isOverHalf ? 1 : 0.5));
+  };
+
+
   return (
     <div className="flex items-center" onMouseLeave={() => !disabled && setHoverRating(0)}>
       {[...Array(starCount)].map((_, index) => {
@@ -49,12 +57,7 @@ const StarRating = ({
             type="button"
             onClick={() => handleStarClick(index)}
             onMouseEnter={() => !disabled && setHoverRating(starValue - 0.5)}
-            onMouseMove={(e) => {
-              if (disabled) return;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const isOverHalf = (e.clientX - rect.left) > rect.width / 2;
-              setHoverRating(index + (isOverHalf ? 1 : 0.5));
-            }}
+            onMouseMove={(e) => handleMouseMove(e, index)}
             disabled={disabled}
             className={cn(
               "p-1 transition-transform duration-200",
@@ -62,18 +65,18 @@ const StarRating = ({
             )}
             aria-label={`Rate ${starValue} star${starValue > 1 ? 's' : ''}`}
           >
-            <div className="relative">
-              <Star 
+            <div className="relative w-8 h-8">
+              {/* Background empty star */}
+              <Star className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+              {/* Foreground filled star (potentially clipped) */}
+              <div
                 className={cn(
-                  "w-8 h-8 text-yellow-400 transition-colors",
-                  (isFull || isHalf) ? 'fill-current' : 'text-gray-300'
-                )} 
-              />
-              {isHalf && (
-                <div className="absolute top-0 left-0 w-1/2 h-full overflow-hidden">
-                   <Star className="w-8 h-8 text-yellow-400 fill-current" />
-                </div>
-              )}
+                  "absolute top-0 left-0 h-full overflow-hidden",
+                  isFull ? "w-full" : isHalf ? "w-1/2" : "w-0"
+                )}
+              >
+                <Star className="w-8 h-8 text-yellow-400 fill-current" />
+              </div>
             </div>
           </button>
         );
