@@ -1,0 +1,69 @@
+
+"use client";
+
+import { Button } from "@/components/ui/button";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { Settings, LogOut } from "lucide-react";
+import { ThemeToggle } from "@/components/app/ThemeToggle";
+import { auth } from "@/lib/firebaseClient";
+import { signOut, onAuthStateChanged, User } from "firebase/auth";
+import { useRouter, usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
+
+export default function HeaderActions() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [user, setUser] = useState<User | null>(null);
+
+  const isAdminPage = pathname.startsWith('/admin');
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/admin/login');
+    } catch (error) {
+        console.error("Logout Failed", error);
+    }
+  };
+
+  return (
+    <>
+      <ThemeToggle />
+      {isAdminPage && user && (
+         <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <Settings className="h-5 w-5" />
+              <span className="sr-only">Settings</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>My Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem disabled>Change Email</DropdownMenuItem>
+            <DropdownMenuItem disabled>Change Password</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </>
+  );
+}
