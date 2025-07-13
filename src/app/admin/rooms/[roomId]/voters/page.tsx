@@ -10,10 +10,11 @@ import { notFound, useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from 'date-fns';
 import { useEffect, useState } from "react";
-import type { ElectionRoom } from "@/lib/types";
+import type { ElectionRoom, Voter } from "@/lib/types";
 import { auth } from "@/lib/firebaseClient";
 import { onAuthStateChanged } from "firebase/auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 function VoterListSkeleton() {
     return (
@@ -30,16 +31,16 @@ function VoterListSkeleton() {
                     <Table>
                         <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[50px]">#</TableHead>
                             <TableHead>Voter Email</TableHead>
+                            <TableHead>Status</TableHead>
                             <TableHead className="text-right">Date Voted</TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
                             {[...Array(3)].map((_, i) => (
                                 <TableRow key={i}>
-                                    <TableCell><Skeleton className="h-5 w-5" /></TableCell>
                                     <TableCell><Skeleton className="h-5 w-[250px]" /></TableCell>
+                                    <TableCell><Skeleton className="h-6 w-[80px]" /></TableCell>
                                     <TableCell className="text-right"><Skeleton className="h-5 w-[120px] ml-auto" /></TableCell>
                                 </TableRow>
                             ))}
@@ -57,7 +58,7 @@ export default function VoterListPage() {
   const roomId = params.roomId as string;
   
   const [room, setRoom] = useState<ElectionRoom | null>(null);
-  const [voters, setVoters] = useState<{email: string; votedAt: string}[]>([]);
+  const [voters, setVoters] = useState<Voter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,7 +72,6 @@ export default function VoterListPage() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          // Fetch room and voters data in parallel after confirming auth
           const [roomData, votersData] = await Promise.all([
             getElectionRoomById(roomId),
             getVotersForRoom(roomId)
@@ -108,8 +108,8 @@ export default function VoterListPage() {
     return (
         <div className="max-w-4xl mx-auto space-y-6">
             <Button variant="outline" asChild>
-                <Link href={`/admin/rooms/${roomId}/manage`}>
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Voting Room
+                <Link href={`/admin/dashboard`}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Panel
                 </Link>
             </Button>
             <VoterListSkeleton />
@@ -121,8 +121,8 @@ export default function VoterListPage() {
      return (
         <div className="max-w-4xl mx-auto space-y-6">
             <Button variant="outline" asChild>
-                <Link href={`/admin/rooms/${roomId}/manage`}>
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Voting Room
+                <Link href={`/admin/dashboard`}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Panel
                 </Link>
             </Button>
             <Card className="shadow-xl border-destructive">
@@ -146,13 +146,28 @@ export default function VoterListPage() {
   if (!room) {
     return notFound();
   }
+  
+  const VoterStatusBadge = ({ status }: { status: Voter['status'] }) => {
+    switch (status) {
+      case 'invited':
+        return <Badge variant="secondary">Invited</Badge>;
+      case 'waiting':
+        return <Badge variant="outline" className="text-amber-500 border-amber-500/50">Waiting</Badge>;
+      case 'voting':
+        return <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">Voting</Badge>;
+      case 'voted':
+        return <Badge variant="default" className="bg-green-600 hover:bg-green-700">Voted</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <Button variant="outline" asChild>
-          <Link href={`/admin/rooms/${room.id}/manage`}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Voting Room
+          <Link href={`/admin/dashboard`}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Panel
           </Link>
         </Button>
       </div>
@@ -164,8 +179,8 @@ export default function VoterListPage() {
             Voter List for: {room.title}
           </CardTitle>
           <CardDescription>
-            This is a list of all individuals who have cast a ballot in this election. 
-            A total of {voters.length} vote(s) have been submitted.
+            This is a list of all individuals in the voter pool for this election. 
+            A total of {voters.length} voter(s) have been invited.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -174,17 +189,19 @@ export default function VoterListPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50px]">#</TableHead>
                     <TableHead>Voter Email</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Date Voted</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {voters.map((voter, index) => (
+                  {voters.map((voter) => (
                     <TableRow key={voter.email}>
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell>{voter.email}</TableCell>
-                      <TableCell className="text-right">{format(new Date(voter.votedAt), "PPP p")}</TableCell>
+                      <TableCell className="font-medium">{voter.email}</TableCell>
+                      <TableCell><VoterStatusBadge status={voter.status} /></TableCell>
+                      <TableCell className="text-right">
+                        {voter.votedAt ? format(new Date(voter.votedAt), "PPP p") : 'Not Voted Yet'}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -192,7 +209,7 @@ export default function VoterListPage() {
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
-              <p>No votes have been submitted for this election yet.</p>
+              <p>No voters have been invited to this election yet.</p>
             </div>
           )}
         </CardContent>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { ElectionRoom } from "@/lib/types";
+import type { ElectionRoom, Voter } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -9,14 +9,17 @@ import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
-import { CheckCircle, Loader2, Lock, AlertTriangle } from "lucide-react";
+import { useRouter, notFound } from "next/navigation";
+import { CheckCircle, Loader2, Lock, AlertTriangle, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { checkUserHasVoted, recordUserVote, getElectionRoomById } from "@/lib/electionRoomService";
+import { recordUserVote, getElectionRoomById, getVoter, updateUserStatus } from "@/lib/electionRoomService";
 import { Skeleton } from "@/components/ui/skeleton";
+import jwt from 'jsonwebtoken';
+
 
 interface VotingBallotProps {
   roomId: string;
+  token: string;
 }
 
 function BallotLoadingSkeleton() {
@@ -45,8 +48,9 @@ function BallotLoadingSkeleton() {
     );
 }
 
-export default function VotingBallot({ roomId }: VotingBallotProps) {
+export default function VotingBallot({ roomId, token }: VotingBallotProps) {
   const [room, setRoom] = useState<ElectionRoom | null>(null);
+  const [voter, setVoter] = useState<Voter | null>(null);
   const [selectedVotes, setSelectedVotes] = useState<Record<string, string>>({}); // positionId: candidateId
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -54,50 +58,60 @@ export default function VotingBallot({ roomId }: VotingBallotProps) {
   const [lockedPositions, setLockedPositions] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const router = useRouter();
-  const [voterEmail, setVoterEmail] = useState<string | null>(null);
-
+  
   useEffect(() => {
-    const email = localStorage.getItem(`voterEmail-${roomId}`);
-    if (!email) {
-      toast({ variant: "destructive", title: "Access Error", description: "Voter email not found. Please start over by entering your email again." });
-      router.push(`/vote/${roomId}`);
-      return;
-    }
-    setVoterEmail(email);
-
     async function initializeBallot() {
       try {
-        const roomData = await getElectionRoomById(roomId);
-        if (!roomData) {
-          setError("This voting room could not be found.");
-          return;
+        // 1. Verify Token and get voter email
+        // In a real app, the secret should be in an environment variable
+        const decoded = jwt.verify(token, 'your-super-secret-key-that-is-long-and-secure') as { email: string, roomId: string };
+        if (decoded.roomId !== roomId) {
+            throw new Error("Token is not valid for this election room.");
         }
+        const voterEmail = decoded.email;
+
+        // 2. Fetch voter and room data
+        const [voterData, roomData] = await Promise.all([
+          getVoter(roomId, voterEmail),
+          getElectionRoomById(roomId)
+        ]);
         
-        const hasVoted = await checkUserHasVoted(roomId, email!);
-        if (hasVoted) {
+        if (!voterData) throw new Error("Voter not found in the voter pool.");
+        if (!roomData) throw new Error("This voting room could not be found.");
+
+        if (voterData.status === 'voted') {
           router.replace(`/vote/${roomId}/thank-you?status=already_voted`);
           return;
         }
-        
+
         if (roomData.status !== 'active') {
-          const message = roomData.status === 'closed' ? 'This election is closed and no longer accepting votes.' : 'This election has not started yet. Please check back later.';
-          setError(message);
-          return;
+          const message = roomData.status === 'closed' ? 'This election is closed.' : 'This election has not started yet.';
+          throw new Error(message);
         }
 
+        setVoter(voterData);
         setRoom(roomData);
-      } catch (err) {
+        
+        // 3. Update voter status to "voting"
+        if (voterData.status !== 'voting') {
+            await updateUserStatus(roomId, voterEmail, 'voting');
+        }
+
+      } catch (err: any) {
         console.error("Error initializing ballot:", err);
-        setError("An unexpected error occurred while loading the ballot. Please try again.");
+        if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+             setError("Your voting link is invalid or has expired. Please request a new one.");
+        } else {
+            setError(err.message || "An unexpected error occurred while loading the ballot.");
+        }
       } finally {
         setIsInitializing(false);
       }
     }
     
-    if (email && roomId) {
-      initializeBallot();
-    }
-  }, [roomId, router, toast]);
+    initializeBallot();
+
+  }, [roomId, token, router]);
 
   const handleVoteChange = (positionId: string, candidateId: string) => {
     if (lockedPositions.has(positionId)) return;
@@ -114,7 +128,7 @@ export default function VotingBallot({ roomId }: VotingBallotProps) {
   };
 
   const handleSubmitAllVotes = async () => {
-    if (!room) return;
+    if (!room || !voter) return;
     if (Object.keys(selectedVotes).length !== room.positions.length) {
       toast({ variant: "destructive", title: "Incomplete Ballot", description: `Please cast your vote for all ${room.positions.length} positions. You have voted for ${Object.keys(selectedVotes).length}.` });
       return;
@@ -126,23 +140,9 @@ export default function VotingBallot({ roomId }: VotingBallotProps) {
       return;
     }
 
-    if (!voterEmail) {
-      toast({ variant: "destructive", title: "Error", description: "Voter identification missing. Please restart the voting process." });
-      router.push(`/vote/${roomId}`);
-      return;
-    }
-
     setIsLoading(true);
     try {
-      const hasVoted = await checkUserHasVoted(roomId, voterEmail);
-      if (hasVoted) {
-        router.push(`/vote/${roomId}/thank-you?status=already_voted`);
-        setIsLoading(false);
-        return;
-      }
-
-      await recordUserVote(roomId, voterEmail, selectedVotes);
-      localStorage.removeItem(`voterEmail-${roomId}`); 
+      await recordUserVote(roomId, voter.email, selectedVotes);
       toast({ title: "Votes Submitted!", description: "Thank you for participating in the election.", className: "bg-primary text-primary-foreground" });
       router.push(`/vote/${roomId}/thank-you`);
     } catch (error) {
@@ -169,11 +169,11 @@ export default function VotingBallot({ roomId }: VotingBallotProps) {
                     <CardDescription>{error}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button asChild variant="outline">
-                        <Link href={`/vote`}>
-                            <ArrowLeft className="mr-2 h-4 w-4" />
-                            Return to Voter Access
-                        </Link>
+                    <Button asChild variant="outline" onClick={() => router.push('/vote')}>
+                        <>
+                          <ArrowLeft className="mr-2 h-4 w-4" />
+                          Return to Voter Access
+                        </>
                     </Button>
                 </CardContent>
             </Card>
@@ -181,7 +181,7 @@ export default function VotingBallot({ roomId }: VotingBallotProps) {
     );
   }
 
-  if (!room) return null; // Should be covered by error state
+  if (!room) return notFound();
 
   return (
     <div className="space-y-10">
@@ -236,7 +236,7 @@ export default function VotingBallot({ roomId }: VotingBallotProps) {
                     data-ai-hint="person portrait"
                   />
                   <RadioGroupItem
-                    value={candidate.id} // Use candidate.id from Firestore data
+                    value={candidate.id}
                     id={`${position.id}-${candidate.id}`}
                     className="sr-only"
                     aria-label={candidate.name}

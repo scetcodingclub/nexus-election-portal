@@ -1,10 +1,10 @@
+
 "use client";
 
 import VotingBallot from '@/components/app/vote/VotingBallot';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 
-// A simple loading skeleton for the page itself before the main component mounts.
 function BallotPageSkeleton() {
   return (
     <div className="max-w-5xl mx-auto py-8">
@@ -17,13 +17,14 @@ function BallotPageSkeleton() {
 
 export default function BallotPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const roomId = params.roomId as string;
+  const token = searchParams.get('token');
 
   return (
     <div className="max-w-5xl mx-auto py-8">
        <Suspense fallback={<BallotPageSkeleton />}>
-        {/* All logic, including fetching and loading states, is now inside VotingBallot */}
-        {roomId ? <VotingBallot roomId={roomId} /> : <BallotPageSkeleton />}
+        {roomId && token ? <VotingBallot roomId={roomId} token={token} /> : <BallotPageSkeleton />}
       </Suspense>
     </div>
   );

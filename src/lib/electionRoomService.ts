@@ -1,7 +1,7 @@
 
 import { db } from "@/lib/firebaseClient";
-import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc } from "firebase/firestore";
-import type { ElectionRoom } from '@/lib/types';
+import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc, updateDoc, setDoc } from "firebase/firestore";
+import type { ElectionRoom, Voter } from '@/lib/types';
 
 
 export async function getElectionRooms(): Promise<ElectionRoom[]> {
@@ -154,16 +154,25 @@ export async function getElectionRoomById(roomId: string, options: { withVoteCou
   };
 }
 
-export async function checkUserHasVoted(roomId: string, userEmail: string): Promise<boolean> {
-  // Use a direct get() on a subcollection document, which is more secure and performant.
-  const userVoteRef = doc(db, "electionRooms", roomId, "voters", userEmail);
-  const userVoteSnap = await getDoc(userVoteRef);
-  return userVoteSnap.exists();
+export async function getVoter(roomId: string, userEmail: string): Promise<Voter | null> {
+  const voterRef = doc(db, "electionRooms", roomId, "voters", userEmail);
+  const voterSnap = await getDoc(voterRef);
+  if (!voterSnap.exists()) {
+    return null;
+  }
+  const data = voterSnap.data();
+  return {
+    email: voterSnap.id,
+    status: data.status,
+    invitedAt: (data.invitedAt as Timestamp)?.toDate().toISOString(),
+    votedAt: (data.votedAt as Timestamp)?.toDate().toISOString(),
+  };
 }
 
-export async function getVotersForRoom(roomId: string): Promise<{email: string; votedAt: string}[]> {
+
+export async function getVotersForRoom(roomId: string): Promise<Voter[]> {
   const votersColRef = collection(db, "electionRooms", roomId, "voters");
-  const votersSnap = await getDocs(votersColRef);
+  const votersSnap = await getDocs(query(votersColRef, orderBy("invitedAt", "desc")));
 
   if (votersSnap.empty) {
     return [];
@@ -171,37 +180,44 @@ export async function getVotersForRoom(roomId: string): Promise<{email: string; 
 
   const voters = votersSnap.docs.map(doc => {
     const data = doc.data();
-    const votedAtRaw = data.votedAt;
-    const votedAt = votedAtRaw instanceof Timestamp
-      ? votedAtRaw.toDate().toISOString()
-      : new Date().toISOString();
-
     return {
       email: doc.id,
-      votedAt,
+      status: data.status || 'unknown',
+      invitedAt: (data.invitedAt as Timestamp)?.toDate().toISOString(),
+      votedAt: (data.votedAt as Timestamp)?.toDate().toISOString(),
     };
   });
-
-  // Sort by date, most recent first
-  return voters.sort((a, b) => new Date(b.votedAt).getTime() - new Date(a.votedAt).getTime());
+  
+  return voters;
 }
+
+export async function updateUserStatus(roomId: string, userEmail: string, status: 'waiting' | 'voting' | 'voted'): Promise<void> {
+  const userVoteRef = doc(db, "electionRooms", roomId, "voters", userEmail);
+  const payload: { status: string, [key: string]: any } = { status };
+  
+  if (status === 'voted') {
+    payload.votedAt = Timestamp.now();
+  }
+
+  // Use updateDoc to avoid overwriting the entire document if it exists
+  await setDoc(userVoteRef, payload, { merge: true });
+}
+
 
 export async function recordUserVote(roomId: string, userEmail: string, votes: Record<string, string>): Promise<void> {
   const userVoteRef = doc(db, "electionRooms", roomId, "voters", userEmail);
   const votesColRef = collection(db, "electionRooms", roomId, "votes");
 
   await runTransaction(db, async (transaction) => {
-    // 1. Check if user has already voted. This is the main guard against double voting.
     const userVoteSnap = await transaction.get(userVoteRef);
-    if (userVoteSnap.exists()) {
-      throw new Error("User has already voted.");
+    if (!userVoteSnap.exists() || userVoteSnap.data().status === 'voted') {
+      throw new Error("User is not eligible to vote or has already voted.");
     }
     
-    // 2. Add individual vote documents to the 'votes' subcollection
     for (const positionId in votes) {
       if (Object.prototype.hasOwnProperty.call(votes, positionId)) {
         const candidateId = votes[positionId];
-        const newVoteRef = doc(votesColRef); // Create a reference for a new document with an auto-generated ID
+        const newVoteRef = doc(votesColRef); 
         transaction.set(newVoteRef, {
           positionId,
           candidateId,
@@ -210,39 +226,14 @@ export async function recordUserVote(roomId: string, userEmail: string, votes: R
       }
     }
     
-    // 3. Create a document for the voter to prevent them from voting again.
     transaction.set(userVoteRef, {
+      status: 'voted',
       votedAt: Timestamp.now(),
-      votesCast: votes, // Store what they voted for, just in case.
-    });
+      votesCast: votes,
+    }, { merge: true });
   });
 }
 
-export async function verifyRoomAccess(formData: FormData): Promise<{ success: boolean; message: string; roomId?: string; }> {
-  const roomId = formData.get('roomId') as string;
-  const accessCode = formData.get('accessCode') as string;
-
-  if (!roomId || roomId.trim() === '') {
-      return { success: false, message: "Please enter a Voting Room ID." };
-  }
-
-  const room = await getElectionRoomById(roomId.trim());
-  
-  if (!room) {
-      return { success: false, message: "The Voting Room ID you entered is invalid or the room does not exist." };
-  }
-
-  if (room.isAccessRestricted) {
-      if (!accessCode || accessCode.trim() === '') {
-          return { success: false, message: "This room is private and requires an access code." };
-      }
-      if (room.accessCode !== accessCode.trim()) {
-          return { success: false, message: "The access code provided is incorrect." };
-      }
-  }
-  
-  return { success: true, message: "Access granted.", roomId: room.id };
-}
 
 export async function deleteElectionRoom(roomId: string, passwordAttempt: string): Promise<{ success: boolean; message: string }> {
     const roomRef = doc(db, "electionRooms", roomId);

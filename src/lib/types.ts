@@ -13,7 +13,7 @@ export interface Position {
 }
 
 export interface ElectionRoom {
-  id: string;
+  id:string;
   title: string;
   description: string;
   isAccessRestricted: boolean; // Example property
@@ -29,4 +29,11 @@ export interface ElectionRoom {
 export interface Vote {
   positionId: string;
   candidateId: string;
+}
+
+export interface Voter {
+  email: string;
+  status: 'invited' | 'waiting' | 'voting' | 'voted';
+  invitedAt?: string;
+  votedAt?: string;
 }
