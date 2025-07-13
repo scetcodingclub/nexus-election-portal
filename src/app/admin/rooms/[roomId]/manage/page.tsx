@@ -6,11 +6,11 @@ import { useParams, useRouter, notFound } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
 import { getElectionRoomById, getVotersForRoom } from "@/lib/electionRoomService";
-import type { ElectionRoom } from "@/lib/types";
+import type { ElectionRoom, Voter } from "@/lib/types";
 
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, BarChart3, Fingerprint, Users, AlertTriangle, Mail, Send, Upload } from 'lucide-react';
+import { ArrowLeft, BarChart3, Fingerprint, Users, AlertTriangle, Mail, Send, Upload, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -18,16 +18,46 @@ import Loading from './loading';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useForm, type SubmitHandler } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { sendInvite } from "@/ai/flows/sendInviteFlow";
+
+
+const inviteSchema = z.object({
+  email: z.string().email("Please enter a valid email address."),
+});
+
+type InviteFormValues = z.infer<typeof inviteSchema>;
 
 export default function ManageElectionRoomPage() {
   const params = useParams();
   const router = useRouter();
   const roomId = params.roomId as string;
+  const { toast } = useToast();
 
   const [room, setRoom] = useState<ElectionRoom | null>(null);
-  const [voters, setVoters] = useState<{email: string; status: string; invitedAt?: string; votedAt?: string}[]>([]);
+  const [voters, setVoters] = useState<Voter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  
+  const form = useForm<InviteFormValues>({
+    resolver: zodResolver(inviteSchema),
+  });
+  const { formState: { isSubmitting: isSendingInvite } } = form;
 
   useEffect(() => {
     if (!roomId) {
@@ -66,6 +96,58 @@ export default function ManageElectionRoomPage() {
     });
     return () => unsubscribe();
   }, [roomId, router]);
+
+  const refreshVoters = async () => {
+    try {
+      const votersData = await getVotersForRoom(roomId);
+      setVoters(votersData);
+    } catch (err) {
+      console.error("Failed to refresh voter list:", err);
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: "Could not refresh the voter list. Please reload the page.",
+      });
+    }
+  };
+
+  const onInviteSubmit: SubmitHandler<InviteFormValues> = async (data) => {
+    const voterEmail = data.email;
+    if (voters.some(v => v.email === voterEmail)) {
+      toast({
+        variant: "destructive",
+        title: "Voter Already Invited",
+        description: `${voterEmail} is already in the voter pool for this election.`,
+      });
+      return;
+    }
+
+    try {
+        const result = await sendInvite({ roomId, email: voterEmail });
+        
+        toast({
+            title: "Invite Link Generated",
+            description: `A unique link has been created for ${voterEmail}. Please send it to them manually.`,
+            duration: 9000,
+            action: (
+              <textarea readOnly value={result.inviteLink} className="w-full h-20 bg-muted text-muted-foreground p-2 rounded-md text-xs" />
+            )
+        });
+        
+        await refreshVoters();
+        setIsInviteDialogOpen(false);
+        form.reset();
+
+    } catch (error: any) {
+        console.error("Error sending invite:", error);
+        toast({
+            variant: "destructive",
+            title: "Invitation Failed",
+            description: error.message || "Could not generate an invitation link. Please try again.",
+        });
+    }
+  };
+
 
   if (loading) {
     return <Loading />;
@@ -110,6 +192,7 @@ export default function ManageElectionRoomPage() {
   };
 
   return (
+    <>
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex justify-between items-center">
         <Button variant="outline" asChild>
@@ -159,13 +242,47 @@ export default function ManageElectionRoomPage() {
           </CardTitle>
           <CardDescription>
             Manage the list of voters who are permitted to participate in this election. 
-            Currently, voters must be added directly in the Firebase console.
+            Send invites to add voters to the pool.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
               <Button disabled><Upload className="mr-2 h-4 w-4" /> Upload CSV (Soon)</Button>
-              <Button disabled><Send className="mr-2 h-4 w-4" /> Send Invites (Soon)</Button>
+               <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button><Send className="mr-2 h-4 w-4" /> Send Invite</Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px]">
+                  <form onSubmit={form.handleSubmit(onInviteSubmit)}>
+                    <DialogHeader>
+                      <DialogTitle>Send Invitation</DialogTitle>
+                      <DialogDescription>
+                        Enter the email of the voter to send them a unique and secure voting link.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="email" className="text-right">
+                          Email
+                        </Label>
+                        <Input
+                          id="email"
+                          placeholder="voter@example.com"
+                          className="col-span-3"
+                          {...form.register("email")}
+                        />
+                      </div>
+                       {form.formState.errors.email && <p className="col-span-4 text-center text-sm text-destructive">{form.formState.errors.email.message}</p>}
+                    </div>
+                    <DialogFooter>
+                      <Button type="submit" disabled={isSendingInvite}>
+                        {isSendingInvite && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Generate Invite Link
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
           </div>
           <div className="border rounded-lg">
              {voters.length > 0 ? (
@@ -198,5 +315,8 @@ export default function ManageElectionRoomPage() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }
+
+    

@@ -33,7 +33,9 @@ export interface Vote {
 
 export interface Voter {
   email: string;
-  status: 'invited' | 'waiting' | 'voting' | 'voted';
+  status: 'invited' | 'waiting' | 'voting' | 'voted' | 'unknown';
   invitedAt?: string;
   votedAt?: string;
 }
+
+    
