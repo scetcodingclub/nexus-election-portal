@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { getElectionRoomById, getVotersForRoom } from "@/lib/electionRoomService";
-import { ArrowLeft, Users, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Users, AlertTriangle, CheckCircle } from "lucide-react";
 import { notFound, useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from 'date-fns';
@@ -31,9 +31,9 @@ function VoterListSkeleton() {
                     <Table>
                         <TableHeader>
                         <TableRow>
-                            <TableHead>Voter Email</TableHead>
+                            <TableHead>Participant Email</TableHead>
                             <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Date Voted</TableHead>
+                            <TableHead className="text-right">Date Submitted</TableHead>
                         </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -147,20 +147,14 @@ export default function VoterListPage() {
     return notFound();
   }
   
-  const VoterStatusBadge = ({ status }: { status: Voter['status'] }) => {
-    switch (status) {
-      case 'invited':
-        return <Badge variant="secondary">Invited</Badge>;
-      case 'waiting':
-        return <Badge variant="outline" className="text-amber-500 border-amber-500/50">Waiting</Badge>;
-      case 'voting':
-        return <Badge variant="default" className="bg-blue-600 hover:bg-blue-700">Voting</Badge>;
-      case 'voted':
-        return <Badge variant="default" className="bg-green-600 hover:bg-green-700">Voted</Badge>;
-      default:
-        return <Badge variant="outline">Unknown</Badge>;
-    }
-  };
+  const pageTitle = room.roomType === 'review' ? 'Reviewer List' : 'Voter List';
+  const pageDescription = room.roomType === 'review' 
+    ? `This is a list of all individuals who have submitted a review. A total of ${voters.length} review(s) have been submitted.`
+    : `This is a list of all individuals who have participated in this election. A total of ${voters.length} voter(s) have participated.`;
+  const noParticipantsMessage = room.roomType === 'review' 
+    ? "No reviews have been submitted yet."
+    : "No voters have participated in this election yet.";
+
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -176,11 +170,10 @@ export default function VoterListPage() {
         <CardHeader>
           <CardTitle className="text-3xl font-headline flex items-center">
             <Users className="mr-3 h-8 w-8 text-primary" />
-            Voter List for: {room.title}
+            {pageTitle} for: {room.title}
           </CardTitle>
           <CardDescription>
-            This is a list of all individuals who have participated in this election. 
-            A total of {voters.length} voter(s) have participated.
+            {pageDescription}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -189,18 +182,22 @@ export default function VoterListPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Voter Email</TableHead>
+                    <TableHead>Participant Email</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Date Voted</TableHead>
+                    <TableHead className="text-right">Date Submitted</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {voters.map((voter) => (
                     <TableRow key={voter.email}>
                       <TableCell className="font-medium">{voter.email}</TableCell>
-                      <TableCell><VoterStatusBadge status={voter.status} /></TableCell>
+                      <TableCell>
+                        <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                          <CheckCircle className="mr-1 h-3 w-3" /> Submitted
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right">
-                        {voter.votedAt ? format(new Date(voter.votedAt), "PPP p") : 'Not Voted Yet'}
+                        {voter.votedAt ? format(new Date(voter.votedAt), "PPP p") : 'N/A'}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -209,7 +206,7 @@ export default function VoterListPage() {
             </div>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
-              <p>No voters have participated in this election yet.</p>
+              <p>{noParticipantsMessage}</p>
             </div>
           )}
         </CardContent>

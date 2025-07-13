@@ -28,7 +28,6 @@ export interface ElectionRoom {
 
 export interface Voter {
   email: string;
-  status: 'invited' | 'waiting' | 'voting' | 'voted' | 'unknown';
-  invitedAt?: string;
+  status: 'voted'; // Simplified status
   votedAt?: string;
 }

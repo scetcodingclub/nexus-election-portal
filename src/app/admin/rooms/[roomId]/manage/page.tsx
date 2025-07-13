@@ -10,10 +10,13 @@ import type { ElectionRoom } from "@/lib/types";
 
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, BarChart3, AlertTriangle, Users, Eye } from 'lucide-react';
+import { ArrowLeft, BarChart3, AlertTriangle, Users, Eye, QrCode, Fingerprint } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import Loading from './loading';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import Image from 'next/image';
+import ShareableLinkDisplay from "@/components/app/admin/ShareableLinkDisplay";
 
 
 export default function ManageElectionRoomPage() {
@@ -24,8 +27,14 @@ export default function ManageElectionRoomPage() {
   const [room, setRoom] = useState<ElectionRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [baseUrl, setBaseUrl] = useState('');
 
   useEffect(() => {
+    // Set base URL only on the client side
+    if (typeof window !== 'undefined') {
+      setBaseUrl(window.location.origin);
+    }
+
     if (!roomId) {
         setError("Room ID is missing from the URL.");
         setLoading(false);
@@ -84,6 +93,9 @@ export default function ManageElectionRoomPage() {
     return notFound(); 
   }
 
+  const voterLink = `${baseUrl}/vote/${room.id}`;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voterLink)}`;
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex justify-between items-center flex-wrap gap-2">
@@ -113,6 +125,51 @@ export default function ManageElectionRoomPage() {
         </CardHeader>
         <CardContent>
           <ElectionRoomForm initialData={room} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-headline">Access & Sharing</CardTitle>
+          <CardDescription>
+            Share this room with voters. For the link and QR code to work correctly when your app is deployed,
+            ensure your <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_BASE_URL</code> environment variable is set to your app's public URL.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+           <Alert variant="default">
+            <Fingerprint className="h-4 w-4" />
+            <AlertTitle>Your Room ID</AlertTitle>
+            <AlertDescription>
+              Voters can use this ID to manually access the room from the main <Link href="/vote" className="underline font-semibold">voting page</Link>.
+              <div className="mt-2">
+                <code className="text-sm bg-muted px-2 py-1 rounded font-mono break-all">
+                  {room.id}
+                </code>
+              </div>
+            </AlertDescription>
+          </Alert>
+          <ShareableLinkDisplay voterLink={voterLink} />
+          <Alert variant="default" className="border-primary/30">
+             <QrCode className="h-4 w-4" />
+            <AlertTitle>QR Code for Voters</AlertTitle>
+
+            <AlertDescription>
+              Voters can scan this QR code with their mobile devices to directly access the voting page.
+              <div className="mt-2 p-4 bg-muted rounded flex items-center justify-center">
+                 {qrCodeUrl && (
+                    <Image 
+                      src={qrCodeUrl} 
+                      alt={`QR Code for election: ${room.title}`} 
+                      width={150} 
+                      height={150} 
+                      data-ai-hint="qr code"
+                      className="rounded-md"
+                    />
+                 )}
+              </div>
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
 

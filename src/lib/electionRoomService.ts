@@ -79,10 +79,16 @@ export async function getElectionRoomById(roomId: string, options: { withVoteCou
   const { withVoteCounts = false } = options;
   const roomRef = doc(db, "electionRooms", roomId);
 
-  const [docSnap, votesSnap] = await Promise.all([
-    getDoc(roomRef),
-    withVoteCounts ? getDocs(collection(db, "electionRooms", roomId, "votes")) : Promise.resolve(null)
-  ]);
+  let votesSnap = null;
+  if(withVoteCounts) {
+    if( (await getDoc(roomRef)).data()?.roomType === 'review' ) {
+      votesSnap = await getDocs(collection(db, "electionRooms", roomId, "reviews"));
+    } else {
+       votesSnap = await getDocs(collection(db, "electionRooms", roomId, "votes"));
+    }
+  }
+ 
+  const docSnap = await getDoc(roomRef);
 
   if (!docSnap.exists()) {
     return null;
@@ -90,11 +96,15 @@ export async function getElectionRoomById(roomId: string, options: { withVoteCou
   
   const voteCounts = new Map<string, number>();
   if (votesSnap) {
-    votesSnap.forEach(voteDoc => {
-        const voteData = voteDoc.data();
-        const candidateId = voteData.candidateId;
-        voteCounts.set(candidateId, (voteCounts.get(candidateId) || 0) + 1);
-    });
+     if(docSnap.data()?.roomType === 'review') {
+        // Logic for reviews if needed in the future, e.g., counting reviews per candidate
+     } else {
+        votesSnap.forEach(voteDoc => {
+            const voteData = voteDoc.data();
+            const candidateId = voteData.candidateId;
+            voteCounts.set(candidateId, (voteCounts.get(candidateId) || 0) + 1);
+        });
+     }
   }
 
   const data = docSnap.data();
@@ -151,7 +161,7 @@ export async function getElectionRoomById(roomId: string, options: { withVoteCou
 
 export async function getVotersForRoom(roomId: string): Promise<Voter[]> {
   const votersColRef = collection(db, "electionRooms", roomId, "voters");
-  const votersSnap = await getDocs(query(votersColRef, orderBy("invitedAt", "desc")));
+  const votersSnap = await getDocs(query(votersColRef, orderBy("votedAt", "desc")));
 
   if (votersSnap.empty) {
     return [];
@@ -161,8 +171,7 @@ export async function getVotersForRoom(roomId: string): Promise<Voter[]> {
     const data = doc.data();
     return {
       email: doc.id,
-      status: data.status || 'unknown',
-      invitedAt: (data.invitedAt as Timestamp)?.toDate().toISOString(),
+      status: 'voted', // simplified status
       votedAt: (data.votedAt as Timestamp)?.toDate().toISOString(),
     };
   });
@@ -195,4 +204,110 @@ export async function deleteElectionRoom(roomId: string, passwordAttempt: string
         }
         return { success: false, message: "An unexpected error occurred while deleting the room." };
     }
+}
+
+export async function submitBallot(
+  roomId: string,
+  voterEmail: string,
+  selections: Record<string, string | null> // positionId -> candidateId | null
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await runTransaction(db, async (transaction) => {
+      const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
+      const voterSnap = await transaction.get(voterRef);
+      if (voterSnap.exists()) {
+        throw new Error("You have already voted in this election.");
+      }
+
+      const roomRef = doc(db, "electionRooms", roomId);
+      const roomSnap = await transaction.get(roomRef);
+      if (!roomSnap.exists() || roomSnap.data().status !== 'active') {
+        throw new Error("This election is not currently active.");
+      }
+
+      const batch = writeBatch(db);
+
+      // Record votes
+      for (const positionId in selections) {
+        const candidateId = selections[positionId];
+        if (candidateId) { // Only record actual votes, not abstentions
+          const voteRef = doc(collection(db, "electionRooms", roomId, "votes"));
+          batch.set(voteRef, {
+            positionId,
+            candidateId,
+            votedAt: serverTimestamp(),
+          });
+        }
+      }
+
+      // Mark voter as having voted
+      batch.set(voterRef, {
+        votedAt: serverTimestamp(),
+      });
+
+      await batch.commit();
+    });
+
+    return { success: true, message: "Your ballot has been successfully submitted." };
+  } catch (error: any) {
+    console.error("Error submitting ballot:", error);
+    return { success: false, message: error.message || "An unexpected error occurred while submitting your ballot." };
+  }
+}
+
+export async function submitReview(
+  roomId: string,
+  voterEmail: string,
+  selections: Record<string, { rating: number; feedback: string }>
+): Promise<{ success: boolean; message: string }> {
+  try {
+    await runTransaction(db, async (transaction) => {
+      const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
+      const voterSnap = await transaction.get(voterRef);
+      if (voterSnap.exists()) {
+        throw new Error("You have already submitted a review for this room.");
+      }
+
+      const roomRef = doc(db, "electionRooms", roomId);
+      const roomSnap = await transaction.get(roomRef);
+      if (!roomSnap.exists() || roomSnap.data().status !== 'active') {
+        throw new Error("This review room is not currently active.");
+      }
+
+      const batch = writeBatch(db);
+
+      // Record reviews
+      const roomData = roomSnap.data();
+      const positions = roomData.positions || [];
+
+      for (const positionId in selections) {
+        const reviewData = selections[positionId];
+        const position = positions.find((p: any) => p.id === positionId);
+        const candidateId = position?.candidates[0]?.id;
+
+        if (candidateId) {
+          const reviewRef = doc(collection(db, "electionRooms", roomId, "reviews"));
+          batch.set(reviewRef, {
+            positionId,
+            candidateId,
+            rating: reviewData.rating,
+            feedback: reviewData.feedback,
+            reviewedAt: serverTimestamp(),
+          });
+        }
+      }
+
+      // Mark voter as having reviewed
+      batch.set(voterRef, {
+        votedAt: serverTimestamp(), // Use 'votedAt' for consistency
+      });
+
+      await batch.commit();
+    });
+    
+    return { success: true, message: "Your review has been successfully submitted." };
+  } catch (error: any) {
+    console.error("Error submitting review:", error);
+    return { success: false, message: error.message || "An unexpected error occurred while submitting your review." };
+  }
 }
