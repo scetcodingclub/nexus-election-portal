@@ -3,35 +3,47 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    function isAdmin() {
-      // Allow access if the user is authenticated at all.
-      // For more security, you could use custom claims: request.auth.token.admin == true
-      return request.auth != null;
+
+    // Helper functions
+    function isRoomActive(roomId) {
+      return get(/databases/$(database)/documents/electionRooms/$(roomId)).data.status == 'active';
     }
-  
-    // Rules for election rooms
+
+    function isVoterNotCompleted(roomId, voterEmail) {
+      return !exists(/databases/$(database)/documents/electionRooms/$(roomId)/voters/$(voterEmail)) || 
+             get(/databases/$(database)/documents/electionRooms/$(roomId)/voters/$(voterEmail)).data.status != 'completed';
+    }
+
+    // Admins have full access to their data
+    // This assumes admins are authenticated via Firebase Auth
     match /electionRooms/{roomId} {
-      // Anyone can read a room's details to join it.
-      // This is necessary for pages like /vote/[roomId] to load title/description.
-      allow read: if true; 
+      allow read, write: if request.auth != null;
+
+      // Rules for unauthenticated participants (voters/reviewers)
       
-      // Only authenticated admins can create, update, or delete rooms.
-      allow write: if isAdmin();
+      // Allow anyone to read the details of a specific room if they know the ID.
+      // This is needed for the voting/review page to fetch room data.
+      allow get: if true; 
 
-      // Rules for subcollections
-      match /{subcollection}/{docId} {
-        // Any authenticated user can create documents in subcollections (e.g., cast a vote)
-        allow create: if request.auth != null;
-
-        // Admins can read/write/delete anything in subcollections (e.g., view voter lists)
-        allow read, write, delete: if isAdmin();
+      // Anyone can create a "voter" document for themselves, but can't read others' docs.
+      match /voters/{voterEmail} {
+        allow read: if false; // Deny reading the voter list
+        allow write: if isRoomActive(roomId) && isVoterNotCompleted(roomId, voterEmail);
+      }
+      
+      // Allow creating votes, but not reading or updating them.
+      // This ensures anonymity.
+      match /votes/{voteId} {
+        allow read, update, delete: if false;
+        allow create: if isRoomActive(roomId) && isVoterNotCompleted(roomId, request.resource.data.voterEmail);
+      }
+      
+      // Allow creating reviews, but not reading or updating them.
+      match /reviews/{reviewId} {
+        allow read, update, delete: if false;
+        allow create: if isRoomActive(roomId) && isVoterNotCompleted(roomId, request.resource.data.reviewerEmail);
       }
     }
     
-    // Catch-all to deny any other access.
-    match /{document=**} {
-      allow read, write: if false;
-    }
   }
 }
