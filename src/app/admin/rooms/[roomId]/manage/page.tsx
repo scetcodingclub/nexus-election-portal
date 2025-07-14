@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter, notFound } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebaseClient";
-import { getElectionRoomById, getVotersForRoom } from "@/lib/electionRoomService";
+import { getElectionRoomById } from "@/lib/electionRoomService";
 import type { ElectionRoom, Voter } from "@/lib/types";
 
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, BarChart3, AlertTriangle, Eye, QrCode, Fingerprint, Users, Activity, CheckCircle, LogIn } from 'lucide-react';
+import { ArrowLeft, BarChart3, AlertTriangle, QrCode, Fingerprint, Users, Activity, CheckCircle, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import Loading from './loading';
@@ -234,18 +234,11 @@ export default function ManageElectionRoomPage() {
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Panel
           </Link>
         </Button>
-        <div className="flex gap-2">
-           <Button variant="outline" asChild>
-              <Link href={`/admin/rooms/${room.id}/preview`} target="_blank">
-                <Eye className="mr-2 h-4 w-4" /> Preview
-              </Link>
-            </Button>
-            <Button variant="default" asChild>
-              <Link href={`/admin/rooms/${room.id}/results`}>
-                <BarChart3 className="mr-2 h-4 w-4" /> View Results
-              </Link>
-            </Button>
-        </div>
+        <Button variant="default" asChild>
+          <Link href={`/admin/rooms/${room.id}/results`}>
+            <BarChart3 className="mr-2 h-4 w-4" /> View Results
+          </Link>
+        </Button>
       </div>
       
       <Card className="shadow-xl">

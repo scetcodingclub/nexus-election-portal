@@ -23,21 +23,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import type { ElectionRoom, Position as PositionType, Candidate as CandidateType } from "@/lib/types"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon, Eye } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon } from "lucide-react";
 import { useState, ChangeEvent, useEffect } from "react";
 import Image from "next/image";
 import { storage, db } from "@/lib/firebaseClient"; 
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore"; 
 import { cn } from "@/lib/utils";
-import Link from "next/link";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-
 
 const candidateSchema = z.object({
   id: z.string().optional(), 
@@ -433,39 +425,16 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
            )}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          {initialData?.id ? (
-            <Button variant="outline" asChild className="w-full sm:w-auto">
-              <Link href={`/admin/rooms/${initialData.id}/preview`} target="_blank">
-                <Eye className="mr-2 h-4 w-4" /> Preview
-              </Link>
-            </Button>
-          ) : (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" className="w-full sm:w-auto" disabled>
-                    <Eye className="mr-2 h-4 w-4" /> Preview
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Save the room first to enable preview.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-
-          <Button type="submit" className="w-full flex-grow" disabled={isLoading} suppressHydrationWarning={true}>
+        <Button type="submit" className="w-full flex-grow" disabled={isLoading} suppressHydrationWarning={true}>
             {isLoading ? (
-              <>
+                <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {initialData ? 'Updating Room...' : 'Creating Room...'}
-              </>
+                </>
             ) : (
-              initialData ? 'Update Room' : 'Create Room'
+                initialData ? 'Update Room' : 'Create Room'
             )}
-          </Button>
-        </div>
+        </Button>
       </form>
     </Form>
   );
