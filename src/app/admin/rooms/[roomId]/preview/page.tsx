@@ -385,7 +385,7 @@ export default function RoomPreviewPage() {
         </div>
         
         {isLastPosition && (
-            <Button size="lg" className="w-full" disabled>
+            <Button size="lg" className="w-full">
             {room.roomType === 'review' ? (
                 <Send className="mr-2 h-5 w-5" />
             ) : (
