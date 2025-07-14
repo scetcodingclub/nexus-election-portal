@@ -281,6 +281,13 @@ export default function RoomPreviewPage() {
     setCurrentPositionIndex(currentPositionIndex - 1);
   };
 
+  const handlePreviewSubmit = () => {
+    toast({
+      title: "Preview Mode",
+      description: "Submissions are disabled in preview mode.",
+    });
+  };
+
 
   if (loading) {
     return <PreviewSkeleton />;
@@ -385,7 +392,7 @@ export default function RoomPreviewPage() {
         </div>
         
         {isLastPosition && (
-            <Button size="lg" className="w-full">
+            <Button size="lg" className="w-full" onClick={handlePreviewSubmit}>
             {room.roomType === 'review' ? (
                 <Send className="mr-2 h-5 w-5" />
             ) : (
