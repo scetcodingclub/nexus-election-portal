@@ -1,21 +1,91 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter, notFound } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
 import { getElectionRoomById } from "@/lib/electionRoomService";
-import type { ElectionRoom } from "@/lib/types";
+import type { ElectionRoom, Candidate } from "@/lib/types";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, BarChartHorizontalBig, PieChartIcon, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Download, BarChartHorizontalBig, PieChartIcon, AlertTriangle, Trophy } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ResultsTable from "@/components/app/admin/ResultsTable";
 import ResultsCharts from "@/components/app/admin/ResultsCharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResultsLoading from "./loading";
+import Image from "next/image";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+
+interface LeaderboardCandidate extends Candidate {
+  positionTitle: string;
+}
+
+function OverallLeaderboard({ room }: { room: ElectionRoom }) {
+    const leaderboardData = useMemo(() => {
+        if (!room || !room.positions) return [];
+        const allCandidates: LeaderboardCandidate[] = [];
+        room.positions.forEach(position => {
+            position.candidates.forEach(candidate => {
+                allCandidates.push({ ...candidate, positionTitle: position.title });
+            });
+        });
+        return allCandidates.sort((a, b) => (b.voteCount || 0) - (a.voteCount || 0));
+    }, [room]);
+
+    if(leaderboardData.length === 0) {
+        return null;
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Trophy className="mr-2 h-6 w-6 text-amber-500" />
+                  Overall Leaderboard
+                </CardTitle>
+                <CardDescription>All candidates ranked by total votes across all positions.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[50px]">Rank</TableHead>
+                            <TableHead>Candidate</TableHead>
+                            <TableHead>Position</TableHead>
+                            <TableHead className="text-right">Votes</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {leaderboardData.map((candidate, index) => (
+                            <TableRow key={candidate.id}>
+                                <TableCell className="font-bold text-lg text-center">{index + 1}</TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-3">
+                                        <Image
+                                            src={candidate.imageUrl || `https://placehold.co/60x60.png?text=${candidate.name.charAt(0)}`}
+                                            alt={candidate.name}
+                                            width={40}
+                                            height={40}
+                                            className="rounded-full object-cover"
+                                            data-ai-hint="person portrait"
+                                        />
+                                        <span className="font-medium">{candidate.name}</span>
+                                    </div>
+                                </TableCell>
+                                <TableCell>{candidate.positionTitle}</TableCell>
+                                <TableCell className="text-right font-bold text-lg">{candidate.voteCount || 0}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+    )
+}
 
 
 export default function ElectionResultsPage() {
@@ -119,13 +189,14 @@ export default function ElectionResultsPage() {
       
       <Tabs defaultValue="charts" className="w-full">
         <TabsList className="grid w-full grid-cols-2 md:w-auto md:inline-flex mb-4">
-          <TabsTrigger value="charts" className="text-sm md:text-base"><PieChartIcon className="mr-2 h-4 w-4"/> Charts View</TabsTrigger>
+          <TabsTrigger value="charts" className="text-sm md:text-base"><BarChartHorizontalBig className="mr-2 h-4 w-4"/>Charts View</TabsTrigger>
           <TabsTrigger value="table" className="text-sm md:text-base"><BarChartHorizontalBig className="mr-2 h-4 w-4"/>Table View</TabsTrigger>
         </TabsList>
-        <TabsContent value="charts">
+        <TabsContent value="charts" className="space-y-8">
           <ResultsCharts positions={room.positions} />
+          <OverallLeaderboard room={room} />
         </TabsContent>
-        <TabsContent value="table">
+        <TabsContent value="table" className="space-y-8">
             <Card>
                 <CardHeader>
                     <CardTitle>Detailed Results Table</CardTitle>
@@ -135,6 +206,7 @@ export default function ElectionResultsPage() {
                     <ResultsTable positions={room.positions} />
                 </CardContent>
             </Card>
+            <OverallLeaderboard room={room} />
         </TabsContent>
       </Tabs>
 

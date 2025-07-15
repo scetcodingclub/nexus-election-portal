@@ -10,10 +10,8 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
   Cell,
-  Legend,
+  LabelList,
 } from "recharts"; // Shadcn/ui charts use recharts
 import { useMemo } from "react";
 
@@ -58,67 +56,41 @@ export default function ResultsCharts({ positions }: ResultsChartsProps) {
         <Card key={positionTitle} className="shadow-lg">
           <CardHeader>
             <CardTitle className="text-xl font-headline">{positionTitle} - Vote Distribution</CardTitle>
-            <CardDescription>Visual representation of votes for each candidate.</CardDescription>
+            <CardDescription>A visual representation of votes for each candidate in this position.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent>
             {candidatesData.length > 0 ? (
-              <>
-                <div>
-                  <h4 className="text-md font-semibold mb-2 text-center">Bar Chart</h4>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={candidatesData} layout="vertical" margin={{ left: 20, right: 20, top:5, bottom:5 }}>
-                      <XAxis type="number" stroke={mutedForegroundColor} tick={{ fill: mutedForegroundColor, fontSize: 12 }} />
-                      <YAxis dataKey="name" type="category" stroke={mutedForegroundColor} width={100} tick={{ fill: foregroundColor, fontSize: 12, width:90 }} interval={0} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}/>
-                      <Tooltip
-                        cursor={{ fill: 'hsl(var(--muted))' }}
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--background))',
-                          borderColor: 'hsl(var(--border))',
-                          borderRadius: 'var(--radius)',
-                          color: 'hsl(var(--foreground))'
-                        }}
-                      />
-                      <Bar dataKey="votes" barSize={20} radius={[0, 4, 4, 0]}>
-                        {candidatesData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div>
-                  <h4 className="text-md font-semibold mb-2 text-center">Pie Chart</h4>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={candidatesData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="votes"
-                        nameKey="name"
-                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                        stroke="hsl(var(--border))"
-                      >
-                        {candidatesData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.fill} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--background))',
-                          borderColor: 'hsl(var(--border))',
-                          borderRadius: 'var(--radius)',
-                          color: 'hsl(var(--foreground))'
-                        }}
-                      />
-                      <Legend wrapperStyle={{ color: foregroundColor, fontSize: '12px' }}/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart data={candidatesData} layout="vertical" margin={{ left: 30, right: 30, top:5, bottom:5 }}>
+                  <XAxis type="number" stroke={mutedForegroundColor} tick={{ fill: mutedForegroundColor, fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis 
+                    dataKey="name" 
+                    type="category" 
+                    stroke={foregroundColor} 
+                    tick={{ fill: foregroundColor, fontSize: 14 }} 
+                    width={120} 
+                    interval={0} 
+                    tickLine={false}
+                    axisLine={false}
+                    style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'hsl(var(--muted))' }}
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--background))',
+                      borderColor: 'hsl(var(--border))',
+                      borderRadius: 'var(--radius)',
+                      color: 'hsl(var(--foreground))'
+                    }}
+                  />
+                  <Bar dataKey="votes" barSize={30} radius={[0, 8, 8, 0]}>
+                    <LabelList dataKey="votes" position="right" offset={10} className="fill-foreground font-semibold" />
+                    {candidatesData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
               <p className="text-muted-foreground text-center py-4">No candidates or votes for this position to display charts.</p>
             )}
