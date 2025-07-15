@@ -219,7 +219,8 @@ const GuidelinesScreen = ({
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
         setEmail(newEmail);
-        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        // Stricter regex for better validation
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/;
         setIsEmailValid(emailRegex.test(newEmail));
     }
 
@@ -594,7 +595,7 @@ export default function VotingPage() {
                     </div>
                     <CardTitle className="text-2xl">No Further Action Required</CardTitle>
                     <CardDescription>
-                        You have selected the only available position. There are no other positions for you to vote on or review. Thank you for confirming your role.
+                        You have selected your own position. There are no other positions for you to vote on or review. Thank you for confirming your role.
                     </CardDescription>
                 </CardHeader>
                  <CardFooter className="justify-center">
