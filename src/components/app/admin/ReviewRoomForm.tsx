@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,18 @@ import { PlusCircle, Trash2, Loader2, GripVertical, Eye, EyeOff } from "lucide-r
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebaseClient"; 
 import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore"; 
+
+const PREDEFINED_POSITIONS = [
+  "President",
+  "Vice President",
+  "Secretary",
+  "Treasurer",
+  "Event Manager",
+  "Workshop Manager",
+  "Social Media Manager",
+  "Technical Lead",
+  "Design Lead",
+];
 
 // Simplified candidate schema without image
 const candidateSchema = z.object({
@@ -56,6 +68,18 @@ const reviewRoomFormSchema = z.object({
 }, {
   message: "Access code must be at least 4 characters if access is restricted.",
   path: ["accessCode"],
+}).refine(data => {
+    const titles = data.positions.map(p => p.title);
+    const uniqueTitles = new Set(titles);
+    return uniqueTitles.size === titles.length;
+}, {
+    message: "Each position must be unique.",
+    path: ["positions"],
+}).refine(data => {
+    return !data.positions.some(p => PREDEFINED_POSITIONS.includes(p.title) && p.title.toLowerCase() === 'custom');
+}, {
+    message: "Custom position title cannot be a predefined position name.",
+    path: ["positions"],
 });
 
 type ReviewRoomFormValues = z.infer<typeof reviewRoomFormSchema>;
@@ -107,6 +131,8 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
     control: form.control,
     name: "positions",
   });
+  
+  const currentPositions = form.watch("positions");
 
   useEffect(() => {
     setIsFormMounted(true);
@@ -335,46 +361,86 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
 
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Positions</h3>
-          {positionFields.map((positionItem, positionIndex) => ( 
-            <Card key={positionItem.id} className="relative group/position">
-              <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
-                <CardTitle className="text-md">Position #{positionIndex + 1}</CardTitle>
-                <div className="flex items-center gap-2">
-                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 cursor-grab active:cursor-grabbing opacity-50 group-hover/position:opacity-100 transition-opacity" suppressHydrationWarning={true}>
-                     <GripVertical className="h-4 w-4" />
-                   </Button>
-                  {positionFields.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removePosition(positionIndex)}
-                      className="text-destructive hover:bg-destructive/10 h-7 w-7"
-                      suppressHydrationWarning={true}
-                    >
-                      <Trash2 className="h-4 w-4" />
+          {positionFields.map((positionItem, positionIndex) => {
+             const currentTitle = currentPositions[positionIndex]?.title;
+             const isCustom = currentTitle && !PREDEFINED_POSITIONS.includes(currentTitle) && currentTitle !== 'custom';
+             const selectedValue = isCustom ? "custom" : currentTitle;
+ 
+             const availablePositions = PREDEFINED_POSITIONS.filter(p => 
+               !currentPositions.some((cp, cpi) => cpi !== positionIndex && cp.title === p)
+             );
+
+            return(
+              <Card key={positionItem.id} className="relative group/position">
+                <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
+                  <CardTitle className="text-md">Position #{positionIndex + 1}</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 cursor-grab active:cursor-grabbing opacity-50 group-hover/position:opacity-100 transition-opacity" suppressHydrationWarning={true}>
+                      <GripVertical className="h-4 w-4" />
                     </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-4">
-                <FormField
-                  control={form.control}
-                  name={`positions.${positionIndex}.title`}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Position Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., President" {...field} suppressHydrationWarning={true} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <SimpleCandidateFields positionIndex={positionIndex} control={form.control} form={form} />
-              </CardContent>
-            </Card>
-          ))}
+                    {positionFields.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removePosition(positionIndex)}
+                        className="text-destructive hover:bg-destructive/10 h-7 w-7"
+                        suppressHydrationWarning={true}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                   <Controller
+                    control={form.control}
+                    name={`positions.${positionIndex}.title`}
+                    render={({ field }) => {
+                        const showCustomInput = field.value === 'custom' || (!PREDEFINED_POSITIONS.includes(field.value) && field.value !== '');
+                        return (
+                            <div className="space-y-4">
+                                <FormItem>
+                                    <FormLabel>Position Title</FormLabel>
+                                    <Select
+                                        onValueChange={(value) => field.onChange(value === 'custom' ? 'custom' : value)}
+                                        value={PREDEFINED_POSITIONS.includes(field.value) ? field.value : (showCustomInput ? 'custom' : '')}
+                                    >
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select a position" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {availablePositions.map(pos => (
+                                                <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                                            ))}
+                                            <SelectItem value="custom">Custom</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                                {showCustomInput && (
+                                    <FormItem>
+                                        <FormLabel>Custom Position Title</FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                placeholder="e.g., Outreach Coordinator"
+                                                onChange={(e) => field.onChange(e.target.value)}
+                                                value={PREDEFINED_POSITIONS.includes(field.value) ? "" : field.value === "custom" ? "" : field.value}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                                <FormMessage>{form.formState.errors.positions?.[positionIndex]?.title?.message}</FormMessage>
+                            </div>
+                        );
+                    }}
+                  />
+                  <SimpleCandidateFields positionIndex={positionIndex} control={form.control} form={form} />
+                </CardContent>
+              </Card>
+            )
+          })}
           <Button
             type="button"
             variant="outline"
