@@ -22,10 +22,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import type { ElectionRoom } from "@/lib/types"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Loader2, GripVertical, Eye, EyeOff } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, GripVertical, Eye, EyeOff, ChevronsUpDown, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebaseClient"; 
-import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore"; 
+import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 const PREDEFINED_POSITIONS = [
   "President",
@@ -362,10 +365,6 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Positions</h3>
           {positionFields.map((positionItem, positionIndex) => {
-             const currentTitle = currentPositions[positionIndex]?.title;
-             const isCustom = currentTitle && !PREDEFINED_POSITIONS.includes(currentTitle) && currentTitle !== 'custom';
-             const selectedValue = isCustom ? "custom" : currentTitle;
- 
              const availablePositions = PREDEFINED_POSITIONS.filter(p => 
                !currentPositions.some((cp, cpi) => cpi !== positionIndex && cp.title === p)
              );
@@ -393,49 +392,71 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
                   </div>
                 </CardHeader>
                 <CardContent className="p-4 space-y-4">
-                   <Controller
-                    control={form.control}
-                    name={`positions.${positionIndex}.title`}
-                    render={({ field }) => {
-                        const showCustomInput = field.value === 'custom' || (!PREDEFINED_POSITIONS.includes(field.value) && field.value !== '');
-                        return (
-                            <div className="space-y-4">
-                                <FormItem>
-                                    <FormLabel>Position Title</FormLabel>
-                                    <Select
-                                        onValueChange={(value) => field.onChange(value === 'custom' ? 'custom' : value)}
-                                        value={PREDEFINED_POSITIONS.includes(field.value) ? field.value : (showCustomInput ? 'custom' : '')}
-                                    >
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a position" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {availablePositions.map(pos => (
-                                                <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                                            ))}
-                                            <SelectItem value="custom">Custom</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormItem>
-                                {showCustomInput && (
-                                    <FormItem>
-                                        <FormLabel>Custom Position Title</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                placeholder="e.g., Outreach Coordinator"
-                                                onChange={(e) => field.onChange(e.target.value)}
-                                                value={PREDEFINED_POSITIONS.includes(field.value) ? "" : field.value === "custom" ? "" : field.value}
-                                            />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                                <FormMessage>{form.formState.errors.positions?.[positionIndex]?.title?.message}</FormMessage>
-                            </div>
-                        );
-                    }}
-                  />
+                    <FormField
+                      control={form.control}
+                      name={`positions.${positionIndex}.title`}
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Position Title</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn(
+                                    "w-full justify-between",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value || "Select a position or type a custom one"}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                               <Command>
+                                 <CommandInput 
+                                    placeholder="Search positions..."
+                                    onValueChange={(currentValue) => {
+                                        const isPredefined = PREDEFINED_POSITIONS.find(p => p.toLowerCase() === currentValue.toLowerCase());
+                                        if (!isPredefined) {
+                                            field.onChange(currentValue);
+                                        }
+                                    }}
+                                  />
+                                <CommandList>
+                                  <CommandEmpty>No predefined position found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {availablePositions.map((pos) => (
+                                      <CommandItem
+                                        value={pos}
+                                        key={pos}
+                                        onSelect={() => {
+                                          form.setValue(`positions.${positionIndex}.title`, pos);
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            pos === field.value ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        {pos}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                 </CommandList>
+                               </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <FormDescription>
+                            Select a predefined position or type to create a new one.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   <SimpleCandidateFields positionIndex={positionIndex} control={form.control} form={form} />
                 </CardContent>
               </Card>
