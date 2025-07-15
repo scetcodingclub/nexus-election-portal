@@ -178,6 +178,7 @@ export async function getVotersForRoom(roomId: string): Promise<Voter[]> {
       status: data.status,
       lastActivity: lastActivity,
       votedAt: data.votedAt instanceof Timestamp ? data.votedAt.toDate().toISOString() : data.votedAt,
+      ownPositionTitle: data.ownPositionTitle,
     };
   });
   
@@ -214,7 +215,8 @@ export async function deleteElectionRoom(roomId: string, passwordAttempt: string
 
 export async function recordParticipantEntry(
     roomId: string,
-    voterEmail: string
+    voterEmail: string,
+    ownPositionTitle: string
 ): Promise<{ success: boolean; message: string }> {
     const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
 
@@ -225,9 +227,14 @@ export async function recordParticipantEntry(
                 if (voterDoc.data().status === 'completed') {
                     throw new Error("You have already completed your submission for this room.");
                 }
+                 transaction.update(voterRef, {
+                    ownPositionTitle,
+                    lastActivity: serverTimestamp()
+                });
             } else {
                 transaction.set(voterRef, {
                     status: 'in_room',
+                    ownPositionTitle,
                     lastActivity: serverTimestamp()
                 });
             }

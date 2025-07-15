@@ -39,7 +39,7 @@ function LiveStatusSkeleton() {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Participant Email</TableHead>
+                                <TableHead>Participant</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead className="text-right">Last Activity</TableHead>
                             </TableRow>
@@ -75,6 +75,7 @@ function LiveStatusDisplay({ room }: { room: ElectionRoom }) {
                     email: doc.id,
                     status: data.status,
                     lastActivity: data.lastActivity?.toDate().toISOString(),
+                    ownPositionTitle: data.ownPositionTitle,
                 };
             });
             setParticipants(fetchedParticipants);
@@ -110,7 +111,7 @@ function LiveStatusDisplay({ room }: { room: ElectionRoom }) {
                         <Table>
                             <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-sm">
                                 <TableRow>
-                                    <TableHead>{title} Email</TableHead>
+                                    <TableHead>{title}</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Last Activity</TableHead>
                                 </TableRow>
@@ -118,7 +119,12 @@ function LiveStatusDisplay({ room }: { room: ElectionRoom }) {
                             <TableBody>
                                 {participants.map((p) => (
                                     <TableRow key={p.email}>
-                                        <TableCell className="font-medium truncate max-w-xs">{p.email}</TableCell>
+                                        <TableCell className="font-medium">
+                                            <div className="truncate max-w-xs">{p.email}</div>
+                                            {p.ownPositionTitle && (
+                                                <div className="text-xs text-muted-foreground">{p.ownPositionTitle}</div>
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             {p.status === 'completed' ? (
                                                 <Badge variant="default" className="bg-green-600 hover:bg-green-700">

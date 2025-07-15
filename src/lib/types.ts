@@ -31,6 +31,7 @@ export interface Voter {
   status: 'in_room' | 'completed';
   lastActivity?: string;
   votedAt?: string;
+  ownPositionTitle?: string;
 }
 
     

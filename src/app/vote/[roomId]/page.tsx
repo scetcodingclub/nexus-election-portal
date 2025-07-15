@@ -207,7 +207,7 @@ const GuidelinesScreen = ({
   onStart,
 }: {
   room: ElectionRoom,
-  onStart: (email: string, ownPositionId: string) => void
+  onStart: (email: string, ownPositionId: string, ownPositionTitle: string) => void
 }) => {
     const [email, setEmail] = useState("");
     const [ownPositionId, setOwnPositionId] = useState("");
@@ -222,6 +222,10 @@ const GuidelinesScreen = ({
         // Stricter regex for better validation
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/;
         setIsEmailValid(emailRegex.test(newEmail));
+    }
+    
+    const getPositionTitle = (id: string) => {
+      return room.positions.find(p => p.id === id)?.title || '';
     }
 
     const startButtonText = room.roomType === 'review' ? 'Start Review' : 'Start Voting';
@@ -322,7 +326,7 @@ const GuidelinesScreen = ({
                     </label>
                 </div>
                 
-                <Button size="lg" className="w-full" disabled={!canProceed} onClick={() => onStart(email, ownPositionId)}>
+                <Button size="lg" className="w-full" disabled={!canProceed} onClick={() => onStart(email, ownPositionId, getPositionTitle(ownPositionId))}>
                     <ArrowRight className="mr-2 h-5 w-5" />
                     {startButtonText}
                 </Button>
@@ -372,10 +376,10 @@ export default function VotingPage() {
     }
   }, [roomId]);
 
-  const handleStart = async (email: string, ownPositionId: string) => {
+  const handleStart = async (email: string, ownPositionId: string, ownPositionTitle: string) => {
     if (!room) return;
     setVoterEmail(email);
-    const result = await recordParticipantEntry(roomId, email);
+    const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
     if (result.success) {
         // Filter out the user's own position
         const positionsToShow = room.positions.filter(p => p.id !== ownPositionId);
