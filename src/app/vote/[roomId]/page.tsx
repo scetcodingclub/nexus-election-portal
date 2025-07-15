@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Send, ArrowRight, ArrowLeft, ThumbsUp, ThumbsDown, Loader2, Info, ShieldCheck, X } from "lucide-react";
+import { Check, Send, ArrowRight, ArrowLeft, ThumbsUp, ThumbsDown, Loader2, Info, ShieldCheck, X, UserCheck } from "lucide-react";
 import StarRating from "@/components/app/StarRating";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,8 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 function VotingSkeleton() {
   return (
@@ -205,18 +207,18 @@ const GuidelinesScreen = ({
   onStart,
 }: {
   room: ElectionRoom,
-  onStart: (email: string) => void
+  onStart: (email: string, ownPositionId: string) => void
 }) => {
     const [email, setEmail] = useState("");
+    const [ownPositionId, setOwnPositionId] = useState("");
     const [isEmailValid, setIsEmailValid] = useState(false);
     const [rulesAcknowledged, setRulesAcknowledged] = useState(false);
     
-    const canProceed = isEmailValid && rulesAcknowledged;
+    const canProceed = isEmailValid && rulesAcknowledged && ownPositionId;
 
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
         setEmail(newEmail);
-        // Stricter regex to validate common TLDs and structure
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         setIsEmailValid(emailRegex.test(newEmail));
     }
@@ -240,6 +242,7 @@ const GuidelinesScreen = ({
                                <ul className="list-disc pl-5 space-y-1">
                                   <li>Only authorized members are allowed. Your access is granted based on your email.</li>
                                   <li>You can enter the room only once. Refreshing or exiting after starting may lock your session.</li>
+                                  <li>To avoid self-voting, you must select your own position. That position will be excluded from your ballot.</li>
                                   <li>Maintain honesty and neutrality. Sharing or discussing your selections is prohibited.</li>
                                   <li>Once submitted, no changes can be made. Ensure you have a stable internet connection.</li>
                                </ul>
@@ -293,6 +296,24 @@ const GuidelinesScreen = ({
                     )}
                 </div>
 
+                <div className="space-y-2">
+                    <Label htmlFor="voter-position">Select Your Position</Label>
+                    <Select value={ownPositionId} onValueChange={setOwnPositionId}>
+                        <SelectTrigger id="voter-position" className="w-full">
+                            <SelectValue placeholder="Select your current position..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {room.positions.map(pos => (
+                                <SelectItem key={pos.id} value={pos.id}>
+                                    {pos.title}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">This is to prevent you from voting for your own position.</p>
+                </div>
+
+
                 <div className="flex items-start gap-3">
                     <Checkbox id="rules-ack" checked={rulesAcknowledged} onCheckedChange={(checked) => setRulesAcknowledged(!!checked)} className="mt-0.5" />
                     <label htmlFor="rules-ack" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
@@ -300,7 +321,7 @@ const GuidelinesScreen = ({
                     </label>
                 </div>
                 
-                <Button size="lg" className="w-full" disabled={!canProceed} onClick={() => onStart(email)}>
+                <Button size="lg" className="w-full" disabled={!canProceed} onClick={() => onStart(email, ownPositionId)}>
                     <ArrowRight className="mr-2 h-5 w-5" />
                     {startButtonText}
                 </Button>
@@ -322,6 +343,7 @@ export default function VotingPage() {
   
   const [hasStarted, setHasStarted] = useState(false);
   const [voterEmail, setVoterEmail] = useState("");
+  const [filteredPositions, setFilteredPositions] = useState<Position[]>([]);
   
   const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
   const [selections, setSelections] = useState<Record<string, any>>({});
@@ -339,17 +361,6 @@ export default function VotingPage() {
           }
           else {
             setRoom(data);
-            const initialSelections: Record<string, any> = {};
-            if (data.roomType === 'review') {
-              data.positions.forEach(p => {
-                initialSelections[p.id] = { rating: 0, feedback: '' };
-              });
-            } else {
-              data.positions.forEach(p => {
-                  initialSelections[p.id] = null;
-              });
-            }
-            setSelections(initialSelections);
           }
         })
         .catch(err => {
@@ -360,12 +371,30 @@ export default function VotingPage() {
     }
   }, [roomId]);
 
-  const handleStart = async (email: string) => {
+  const handleStart = async (email: string, ownPositionId: string) => {
     if (!room) return;
     setVoterEmail(email);
     const result = await recordParticipantEntry(roomId, email);
     if (result.success) {
+        // Filter out the user's own position
+        const positionsToShow = room.positions.filter(p => p.id !== ownPositionId);
+        setFilteredPositions(positionsToShow);
+
+        // Initialize selections for the filtered positions
+        const initialSelections: Record<string, any> = {};
+        if (room.roomType === 'review') {
+          positionsToShow.forEach(p => {
+            initialSelections[p.id] = { rating: 0, feedback: '' };
+          });
+        } else {
+          positionsToShow.forEach(p => {
+              initialSelections[p.id] = null;
+          });
+        }
+        setSelections(initialSelections);
+
         setHasStarted(true);
+
     } else {
         toast({
             variant: "destructive",
@@ -376,13 +405,13 @@ export default function VotingPage() {
   };
   
   const handleVoteSelection = (selectionValue: any) => {
-    if (!room) return;
-    const positionId = room.positions[currentPositionIndex].id;
+    if (!filteredPositions) return;
+    const positionId = filteredPositions[currentPositionIndex].id;
     setSelections(prev => ({ ...prev, [positionId]: selectionValue }));
 
-    if (room.roomType === 'voting' && room.positions[currentPositionIndex].candidates.length > 1) {
+    if (room?.roomType === 'voting' && filteredPositions[currentPositionIndex].candidates.length > 1) {
       setTimeout(() => {
-        if (currentPositionIndex < room.positions.length - 1) {
+        if (currentPositionIndex < filteredPositions.length - 1) {
           setCurrentPositionIndex(currentPositionIndex + 1);
         } else {
           // On last position, user must click submit
@@ -392,8 +421,8 @@ export default function VotingPage() {
   };
 
   const handleReviewSelection = (update: { rating?: number; feedback?: string }) => {
-    if (!room) return;
-    const positionId = room.positions[currentPositionIndex].id;
+    if (!filteredPositions) return;
+    const positionId = filteredPositions[currentPositionIndex].id;
     setSelections(prev => ({
       ...prev,
       [positionId]: { ...prev[positionId], ...update }
@@ -401,9 +430,9 @@ export default function VotingPage() {
   };
 
   const handleNext = () => {
-    if (!room || currentPositionIndex >= room.positions.length - 1) return;
+    if (!room || !filteredPositions || currentPositionIndex >= filteredPositions.length - 1) return;
     if (room.roomType === 'review') {
-      const currentPositionId = room.positions[currentPositionIndex].id;
+      const currentPositionId = filteredPositions[currentPositionIndex].id;
       const currentReview = selections[currentPositionId];
       if (!currentReview || currentReview.rating === 0) {
         toast({ variant: "destructive", title: "Incomplete", description: "Please provide a star rating before proceeding." });
@@ -430,7 +459,7 @@ export default function VotingPage() {
 
     // Final validation for review rooms before submitting
     if (room.roomType === 'review') {
-      const currentPositionId = room.positions[currentPositionIndex].id;
+      const currentPositionId = filteredPositions[currentPositionIndex].id;
       const currentReview = selections[currentPositionId];
       if (!currentReview || currentReview.rating === 0) {
         toast({ variant: "destructive", title: "Incomplete", description: "Please provide a star rating before submitting." });
@@ -554,11 +583,36 @@ export default function VotingPage() {
         </div>
     )
   }
+
+  if (filteredPositions.length === 0) {
+      return (
+        <div className="max-w-2xl mx-auto text-center py-10">
+            <Card>
+                <CardHeader>
+                    <div className="mx-auto bg-primary/10 text-primary p-3 rounded-full w-fit mb-4">
+                      <UserCheck className="h-10 w-10" />
+                    </div>
+                    <CardTitle className="text-2xl">No Further Action Required</CardTitle>
+                    <CardDescription>
+                        You have selected the only available position. There are no other positions for you to vote on or review. Thank you for confirming your role.
+                    </CardDescription>
+                </CardHeader>
+                 <CardFooter className="justify-center">
+                    <Button asChild variant="outline">
+                        <a href="https://www.google.com">
+                            <X className="mr-2 h-4 w-4" /> Close
+                        </a>
+                    </Button>
+                </CardFooter>
+            </Card>
+        </div>
+      )
+  }
     
-  const progress = ((currentPositionIndex + 1) / room.positions.length) * 100;
-  const currentPosition = room.positions[currentPositionIndex];
+  const progress = ((currentPositionIndex + 1) / filteredPositions.length) * 100;
+  const currentPosition = filteredPositions[currentPositionIndex];
   const currentSelection = selections[currentPosition?.id] || null;
-  const isLastPosition = currentPositionIndex === room.positions.length - 1;
+  const isLastPosition = currentPositionIndex === filteredPositions.length - 1;
 
   const renderCurrentPositionCard = () => {
     if (!currentPosition) return null;
@@ -603,7 +657,7 @@ export default function VotingPage() {
         <div className="space-y-3">
             <Progress value={progress} className="w-full h-3" />
             <p className="text-center text-sm text-muted-foreground">
-                Position {currentPositionIndex + 1} of {room.positions.length}
+                Position {currentPositionIndex + 1} of {filteredPositions.length}
             </p>
         </div>
 
