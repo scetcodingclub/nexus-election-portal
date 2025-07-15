@@ -235,7 +235,8 @@ const GuidelinesScreen = ({
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
         setEmail(newEmail);
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        // Stricter regex to validate common email formats and prevent simple typos.
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         setIsEmailValid(emailRegex.test(newEmail));
     }
 
@@ -338,6 +339,9 @@ const GuidelinesScreen = ({
                         onChange={handleEmailChange}
                         autoFocus
                     />
+                     {!isEmailValid && email.length > 0 && (
+                        <p className="text-sm text-destructive">Please enter a valid email address.</p>
+                    )}
                 </div>
                 
                 <Button size="lg" className="w-full" disabled={!canProceed} onClick={() => onStart(email)}>
@@ -665,3 +669,4 @@ export default function VotingPage() {
     </div>
   );
 }
+
