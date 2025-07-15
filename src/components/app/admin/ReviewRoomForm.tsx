@@ -32,15 +32,20 @@ import { cn } from "@/lib/utils";
 
 const PREDEFINED_POSITIONS = [
   "President",
-  "Vice President",
+  "Vice-President",
   "Secretary",
+  "Secretary (Boy)",
+  "Secretary (Girl)",
   "Treasurer",
+  "Technical Lead",
   "Event Manager",
   "Workshop Manager",
-  "Social Media Manager",
-  "Technical Lead",
-  "Design Lead",
+  "Project Manager",
+  "Publicity Manager",
+  "Convo Manager (Boy)",
+  "Convo Manager (Girl)",
 ];
+
 
 // Simplified candidate schema without image
 const candidateSchema = z.object({
@@ -72,18 +77,20 @@ const reviewRoomFormSchema = z.object({
   message: "Access code must be at least 4 characters if access is restricted.",
   path: ["accessCode"],
 }).refine(data => {
-    const titles = data.positions.map(p => p.title);
+    const titles = data.positions.map(p => p.title.toLowerCase().trim());
     const uniqueTitles = new Set(titles);
     return uniqueTitles.size === titles.length;
 }, {
     message: "Each position must be unique.",
     path: ["positions"],
 }).refine(data => {
-    return !data.positions.some(p => PREDEFINED_POSITIONS.includes(p.title) && p.title.toLowerCase() === 'custom');
+    const lowercasedPredefined = PREDEFINED_POSITIONS.map(p => p.toLowerCase());
+    return !data.positions.some(p => p.title.toLowerCase().trim() === 'custom' && lowercasedPredefined.includes(p.title.toLowerCase().trim()));
 }, {
     message: "Custom position title cannot be a predefined position name.",
     path: ["positions"],
 });
+
 
 type ReviewRoomFormValues = z.infer<typeof reviewRoomFormSchema>;
 
@@ -398,58 +405,54 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
                           <FormLabel>Position Title</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  className={cn(
-                                    "w-full justify-between",
-                                    !field.value && "text-muted-foreground"
-                                  )}
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <FormControl>
+                                    <div className="relative">
+                                        <CommandInput 
+                                            asChild
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                        >
+                                            <Input
+                                                placeholder="Select or type a position..."
+                                                className="pr-8"
+                                            />
+                                        </CommandInput>
+                                        <ChevronsUpDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 shrink-0 opacity-50" />
+                                    </div>
+                                </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command
+                                    value={field.value}
+                                    onValueChange={field.onChange}
                                 >
-                                  {field.value || "Select a position or type a custom one"}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                               <Command>
-                                 <CommandInput 
-                                    placeholder="Search positions..."
-                                    onValueChange={(currentValue) => {
-                                        const isPredefined = PREDEFINED_POSITIONS.find(p => p.toLowerCase() === currentValue.toLowerCase());
-                                        if (!isPredefined) {
-                                            field.onChange(currentValue);
-                                        }
-                                    }}
-                                  />
-                                <CommandList>
-                                  <CommandEmpty>No predefined position found.</CommandEmpty>
-                                  <CommandGroup>
-                                    {availablePositions.map((pos) => (
-                                      <CommandItem
-                                        value={pos}
-                                        key={pos}
-                                        onSelect={() => {
-                                          form.setValue(`positions.${positionIndex}.title`, pos);
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            pos === field.value ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {pos}
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                 </CommandList>
-                               </Command>
-                            </PopoverContent>
-                          </Popover>
+                                    <CommandList>
+                                    <CommandEmpty>No predefined position found.</CommandEmpty>
+                                    <CommandGroup>
+                                        {availablePositions.map((pos) => (
+                                        <CommandItem
+                                            value={pos}
+                                            key={pos}
+                                            onSelect={(currentValue) => {
+                                                form.setValue(`positions.${positionIndex}.title`, currentValue === field.value ? "" : currentValue, { shouldValidate: true });
+                                            }}
+                                        >
+                                            <Check
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                pos === field.value ? "opacity-100" : "opacity-0"
+                                            )}
+                                            />
+                                            {pos}
+                                        </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                                </PopoverContent>
+                            </Popover>
                           <FormDescription>
                             Select a predefined position or type to create a new one.
                           </FormDescription>
@@ -550,7 +553,3 @@ function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidate
     </div>
   );
 }
-
-    
-
-    
