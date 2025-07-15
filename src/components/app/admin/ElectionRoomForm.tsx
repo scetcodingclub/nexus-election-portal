@@ -417,103 +417,15 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
             );
             
             return (
-              <Card key={positionItem.id} className="relative group/position">
-                <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
-                  <CardTitle className="text-md">Position #{positionIndex + 1}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 cursor-grab active:cursor-grabbing opacity-50 group-hover/position:opacity-100 transition-opacity" suppressHydrationWarning={true}>
-                      <GripVertical className="h-4 w-4" />
-                    </Button>
-                    {positionFields.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removePosition(positionIndex)}
-                        className="text-destructive hover:bg-destructive/10 h-7 w-7"
-                        suppressHydrationWarning={true}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                   <FormField
-                      control={form.control}
-                      name={`positions.${positionIndex}.title`}
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Position Title</FormLabel>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <FormControl>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  className={cn(
-                                    "w-full justify-between",
-                                    !field.value && "text-muted-foreground"
-                                  )}
-                                >
-                                  {field.value
-                                    ? PREDEFINED_POSITIONS.find(
-                                        (pos) => pos === field.value
-                                      ) || field.value
-                                    : "Select or type a position..."}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                               <Command shouldFilter={false}>
-                                 <CommandInput 
-                                    placeholder="Search or create position..."
-                                    value={field.value}
-                                    onValueChange={field.onChange}
-                                  />
-                                <CommandList>
-                                  <CommandEmpty>No predefined position found.</CommandEmpty>
-                                  <CommandGroup>
-                                    {availablePositions
-                                      .filter(pos => pos.toLowerCase().includes((field.value || '').toLowerCase()))
-                                      .map((pos) => (
-                                      <CommandItem
-                                        value={pos}
-                                        key={pos}
-                                        onSelect={(currentValue) => {
-                                          form.setValue(`positions.${positionIndex}.title`, currentValue, { shouldValidate: true });
-                                        }}
-                                      >
-                                        <Check
-                                          className={cn(
-                                            "mr-2 h-4 w-4",
-                                            pos === field.value ? "opacity-100" : "opacity-0"
-                                          )}
-                                        />
-                                        {pos}
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                 </CommandList>
-                               </Command>
-                            </PopoverContent>
-                          </Popover>
-                          <FormDescription>
-                            Select a predefined position or type to create a new one.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  <CandidateFields 
-                    positionIndex={positionIndex} 
-                    form={form} 
-                    control={form.control}
-                    roomType={initialData?.roomType}
-                  />
-                </CardContent>
-              </Card>
+              <PositionCard
+                key={positionItem.id}
+                positionIndex={positionIndex}
+                removePosition={removePosition}
+                availablePositions={availablePositions}
+                form={form}
+                initialData={initialData}
+                isOnlyPosition={positionFields.length <= 1}
+              />
             )
           })}
           <Button
@@ -553,6 +465,127 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
         </Button>
       </form>
     </Form>
+  );
+}
+
+interface PositionCardProps {
+  positionIndex: number;
+  removePosition: (index: number) => void;
+  availablePositions: string[];
+  form: any; // React Hook Form's form object
+  initialData?: ElectionRoom;
+  isOnlyPosition: boolean;
+}
+
+function PositionCard({ positionIndex, removePosition, availablePositions, form, initialData, isOnlyPosition }: PositionCardProps) {
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  return (
+     <Card className="relative group/position">
+      <CardHeader className="flex flex-row items-center justify-between py-3 px-4 border-b">
+        <CardTitle className="text-md">Position #{positionIndex + 1}</CardTitle>
+        <div className="flex items-center gap-2">
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 cursor-grab active:cursor-grabbing opacity-50 group-hover/position:opacity-100 transition-opacity" suppressHydrationWarning={true}>
+            <GripVertical className="h-4 w-4" />
+          </Button>
+          {!isOnlyPosition && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => removePosition(positionIndex)}
+              className="text-destructive hover:bg-destructive/10 h-7 w-7"
+              suppressHydrationWarning={true}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="p-4 space-y-4">
+        <FormField
+          control={form.control}
+          name={`positions.${positionIndex}.title`}
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>Position Title</FormLabel>
+              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={popoverOpen}
+                      className={cn(
+                        "w-full justify-between",
+                        !field.value && "text-muted-foreground"
+                      )}
+                    >
+                      {field.value
+                        ? PREDEFINED_POSITIONS.find(
+                            (pos) => pos === field.value
+                          ) || field.value
+                        : "Select or type a position..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command shouldFilter={false}>
+                    <CommandInput 
+                      placeholder="Search or create position..."
+                      value={field.value || ''}
+                      onValueChange={field.onChange}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          setPopoverOpen(false);
+                        }
+                      }}
+                    />
+                    <CommandList>
+                      <CommandEmpty>No predefined position found.</CommandEmpty>
+                      <CommandGroup>
+                        {availablePositions
+                          .filter(pos => pos.toLowerCase().includes((field.value || '').toLowerCase()))
+                          .map((pos) => (
+                          <CommandItem
+                            value={pos}
+                            key={pos}
+                            onSelect={() => {
+                              form.setValue(`positions.${positionIndex}.title`, pos, { shouldValidate: true });
+                              setPopoverOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                pos === field.value ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {pos}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <FormDescription>
+                Select a predefined position or type to create a new one.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <CandidateFields 
+          positionIndex={positionIndex} 
+          control={form.control}
+          form={form} 
+          roomType={initialData?.roomType}
+        />
+      </CardContent>
+    </Card>
   );
 }
 
