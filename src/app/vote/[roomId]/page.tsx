@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -205,37 +206,13 @@ const GuidelinesScreen = ({
 }) => {
     const [email, setEmail] = useState("");
     const [isEmailValid, setIsEmailValid] = useState(false);
+    const [rulesAcknowledged, setRulesAcknowledged] = useState(false);
     
-    const initialGeneralRulesState = { rule1: false, rule2: false, rule3: false, rule4: false };
-    const [generalRulesAcknowledged, setGeneralRulesAcknowledged] = useState(initialGeneralRulesState);
-    const handleGeneralCheckboxChange = (rule: keyof typeof generalRulesAcknowledged) => {
-        setGeneralRulesAcknowledged(prev => ({...prev, [rule]: !prev[rule]}));
-    };
-    
-    const initialVotingRulesState = { rule1: false, rule2: false };
-    const [votingRulesAcknowledged, setVotingRulesAcknowledged] = useState(initialVotingRulesState);
-    const handleVotingCheckboxChange = (rule: keyof typeof votingRulesAcknowledged) => {
-        setVotingRulesAcknowledged(prev => ({...prev, [rule]: !prev[rule]}));
-    };
-
-    const initialReviewRulesState = { rule1: false, rule2: false, rule3: false, rule4: false };
-    const [reviewRulesAcknowledged, setReviewRulesAcknowledged] = useState(initialReviewRulesState);
-    const handleReviewCheckboxChange = (rule: keyof typeof reviewRulesAcknowledged) => {
-        setReviewRulesAcknowledged(prev => ({...prev, [rule]: !prev[rule]}));
-    };
-
-    const allGeneralRulesChecked = Object.values(generalRulesAcknowledged).every(Boolean);
-    const allVotingRulesChecked = Object.values(votingRulesAcknowledged).every(Boolean);
-    const allReviewRulesChecked = Object.values(reviewRulesAcknowledged).every(Boolean);
-
-    const canProceed = 
-        (room.roomType === 'voting' && isEmailValid && allGeneralRulesChecked && allVotingRulesChecked) ||
-        (room.roomType === 'review' && isEmailValid && allGeneralRulesChecked && allReviewRulesChecked);
+    const canProceed = isEmailValid && rulesAcknowledged;
 
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
         setEmail(newEmail);
-        // Stricter regex to validate common email formats and prevent simple typos.
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         setIsEmailValid(emailRegex.test(newEmail));
     }
@@ -251,81 +228,49 @@ const GuidelinesScreen = ({
             <CardContent className="space-y-6">
                 <Alert variant="default" className="border-primary/30">
                     <Info className="h-4 w-4" />
-                    <AlertTitle>⚠️ General Guidelines (Applicable to Both Rooms)</AlertTitle>
+                    <AlertTitle>Please review the guidelines before proceeding</AlertTitle>
                     <AlertDescription>
-                       <ul className="space-y-3 mt-4 text-xs sm:text-sm">
-                          <li className="flex items-start gap-3">
-                            <Checkbox id="g-rule1" checked={generalRulesAcknowledged.rule1} onCheckedChange={() => handleGeneralCheckboxChange('rule1')} className="mt-0.5" />
-                            <label htmlFor="g-rule1" className="flex-1"><span className="font-semibold">Only authorized members are allowed.</span> Your access has been granted based on your email.</label>
-                          </li>
-                          <li className="flex items-start gap-3">
-                            <Checkbox id="g-rule2" checked={generalRulesAcknowledged.rule2} onCheckedChange={() => handleGeneralCheckboxChange('rule2')} className="mt-0.5" />
-                            <label htmlFor="g-rule2" className="flex-1"><span className="font-semibold">You can enter the room only once.</span> Make sure you’re ready before clicking “Start”. Refreshing or exiting may lock your session.</label>
-                          </li>
-                           <li className="flex items-start gap-3">
-                            <Checkbox id="g-rule3" checked={generalRulesAcknowledged.rule3} onCheckedChange={() => handleGeneralCheckboxChange('rule3')} className="mt-0.5" />
-                            <label htmlFor="g-rule3" className="flex-1"><span className="font-semibold">Maintain honesty and neutrality</span> while reviewing or voting. Sharing or discussing your vote/review is prohibited.</label>
-                          </li>
-                          <li className="flex items-start gap-3">
-                            <Checkbox id="g-rule4" checked={generalRulesAcknowledged.rule4} onCheckedChange={() => handleGeneralCheckboxChange('rule4')} className="mt-0.5" />
-                            <label htmlFor="g-rule4" className="flex-1"><span className="font-semibold">Once submitted, no changes can be made.</span> Ensure you have a stable internet connection.</label>
-                          </li>
-                       </ul>
-                    </AlertDescription>
-                </Alert>
-                
-                {room.roomType === 'voting' && (
-                  <Alert variant="default" className="border-green-500/30">
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>Voting Room – Specific Rules</AlertTitle>
-                    <AlertDescription>
-                       <ul className="space-y-3 mt-4 text-xs sm:text-sm">
-                          <li className="flex items-start gap-3">
-                             <Checkbox id="v-rule1" checked={votingRulesAcknowledged.rule1} onCheckedChange={() => handleVotingCheckboxChange('rule1')} className="mt-0.5" />
-                             <label htmlFor="v-rule1" className="flex-1"><span className="font-semibold">🗳️ You are here to cast your vote</span> — selecting who you support or oppose.</label>
-                          </li>
-                          <li className="flex items-start gap-3">
-                            <Checkbox id="v-rule2" checked={votingRulesAcknowledged.rule2} onCheckedChange={() => handleVotingCheckboxChange('rule2')} className="mt-0.5" />
-                            <label htmlFor="v-rule2" className="flex-1"><span className="font-semibold">📥 Every vote is final</span> and securely recorded in the election system.</label>
-                          </li>
-                       </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
+                       <div className="space-y-4 mt-4 text-xs sm:text-sm">
+                           <div>
+                               <h4 className="font-semibold mb-2">General Rules (Applicable to All Rooms)</h4>
+                               <ul className="list-disc pl-5 space-y-1">
+                                  <li>Only authorized members are allowed. Your access is granted based on your email.</li>
+                                  <li>You can enter the room only once. Refreshing or exiting after starting may lock your session.</li>
+                                  <li>Maintain honesty and neutrality. Sharing or discussing your selections is prohibited.</li>
+                                  <li>Once submitted, no changes can be made. Ensure you have a stable internet connection.</li>
+                               </ul>
+                           </div>
+                           
+                           {room.roomType === 'voting' && (
+                             <div>
+                               <h4 className="font-semibold mb-2">Voting Room – Specific Rules</h4>
+                               <ul className="list-disc pl-5 space-y-1">
+                                  <li>You are here to cast your vote — selecting who you support or oppose.</li>
+                                  <li>Every vote is final and securely recorded in the election system.</li>
+                               </ul>
+                             </div>
+                           )}
 
-                {room.roomType === 'review' && (
-                  <Alert variant="default" className="border-purple-500/30">
-                    <Info className="h-4 w-4" />
-                    <AlertTitle>Reviewer Room – Specific Rules</AlertTitle>
-                    <AlertDescription>
-                       <ul className="space-y-3 mt-4 text-xs sm:text-sm">
-                          <li className="flex items-start gap-3">
-                             <Checkbox id="r-rule1" checked={reviewRulesAcknowledged.rule1} onCheckedChange={() => handleReviewCheckboxChange('rule1')} className="mt-0.5" />
-                             <label htmlFor="r-rule1" className="flex-1"><span className="font-semibold">🎯 You are here to provide feedback</span> on the candidates — not to elect.</label>
-                          </li>
-                          <li className="flex items-start gap-3">
-                            <Checkbox id="r-rule2" checked={reviewRulesAcknowledged.rule2} onCheckedChange={() => handleReviewCheckboxChange('rule2')} className="mt-0.5" />
-                            <label htmlFor="r-rule2" className="flex-1"><span className="font-semibold">⭐ You will rate candidates</span> using a star-based system (1–5).</label>
-                          </li>
-                          <li className="flex items-start gap-3">
-                            <Checkbox id="r-rule3" checked={reviewRulesAcknowledged.rule3} onCheckedChange={() => handleReviewCheckboxChange('rule3')} className="mt-0.5" />
-                            <label htmlFor="r-rule3" className="flex-1"><span className="font-semibold">🗣️ Honest, constructive written feedback</span> is encouraged. Be respectful and specific.</label>
-                          </li>
-                           <li className="flex items-start gap-3">
-                            <Checkbox id="r-rule4" checked={reviewRulesAcknowledged.rule4} onCheckedChange={() => handleReviewCheckboxChange('rule4')} className="mt-0.5" />
-                            <label htmlFor="r-rule4" className="flex-1"><span className="font-semibold">✅ Your review is confidential</span> and used only for evaluation purposes.</label>
-                          </li>
-                       </ul>
-                    </AlertDescription>
-                  </Alert>
-                )}
+                           {room.roomType === 'review' && (
+                             <div>
+                               <h4 className="font-semibold mb-2">Reviewer Room – Specific Rules</h4>
+                               <ul className="list-disc pl-5 space-y-1">
+                                  <li>You are here to provide feedback on the candidates — not to elect.</li>
+                                  <li>You will rate candidates using a star-based system (1–5).</li>
+                                  <li>Honest, constructive written feedback is encouraged. Be respectful and specific.</li>
+                                  <li>Your review is confidential and used only for evaluation purposes.</li>
+                               </ul>
+                             </div>
+                           )}
 
-                 <Alert variant="default" className="border-green-500/30">
-                    <ShieldCheck className="h-4 w-4 text-green-600" />
-                    <AlertTitle>Your Privacy is Protected</AlertTitle>
-                    <AlertDescription>
-                        To ensure fairness, we require your email to prevent multiple submissions. 
-                        However, your {room.roomType === 'review' ? 'review' : 'vote'} itself is **completely anonymous**. Your email will not be linked to your specific choices.
+                           <div>
+                               <h4 className="font-semibold mb-2 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-green-600" />Your Privacy is Protected</h4>
+                               <p>
+                                   To ensure fairness, we require your email to prevent multiple submissions. 
+                                   However, your {room.roomType === 'review' ? 'review' : 'vote'} itself is **completely anonymous**. Your email will not be linked to your specific choices.
+                               </p>
+                           </div>
+                       </div>
                     </AlertDescription>
                 </Alert>
 
@@ -342,6 +287,13 @@ const GuidelinesScreen = ({
                      {!isEmailValid && email.length > 0 && (
                         <p className="text-sm text-destructive">Please enter a valid email address.</p>
                     )}
+                </div>
+
+                <div className="flex items-start gap-3">
+                    <Checkbox id="rules-ack" checked={rulesAcknowledged} onCheckedChange={(checked) => setRulesAcknowledged(!!checked)} className="mt-0.5" />
+                    <label htmlFor="rules-ack" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                       I have read and understand the rules.
+                    </label>
                 </div>
                 
                 <Button size="lg" className="w-full" disabled={!canProceed} onClick={() => onStart(email)}>
@@ -669,4 +621,5 @@ export default function VotingPage() {
     </div>
   );
 }
+
 
