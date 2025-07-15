@@ -16,44 +16,23 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import type { ElectionRoom, Position as PositionType, Candidate as CandidateType } from "@/lib/types"; 
+import type { ElectionRoom } from "@/lib/types"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon, Eye, EyeOff, Check, ChevronsUpDown } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon, Eye, EyeOff } from "lucide-react";
 import { useState, ChangeEvent, useEffect } from "react";
 import Image from "next/image";
 import { storage, db } from "@/lib/firebaseClient"; 
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore"; 
-import { cn } from "@/lib/utils";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-
-const PREDEFINED_POSITIONS = [
-  "President",
-  "Vice-President",
-  "Secretary",
-  "Secretary (Boy)",
-  "Secretary (Girl)",
-  "Treasurer",
-  "Technical Lead",
-  "Event Manager",
-  "Workshop Manager",
-  "Project Manager",
-  "Publicity Manager",
-  "Convo Manager (Boy)",
-  "Convo Manager (Girl)",
-];
 
 const candidateSchema = z.object({
   id: z.string().optional(), 
   name: z.string().min(1, "Candidate name is required."),
   imageUrl: z.string().url("Image URL must be a valid URL.").optional().or(z.literal('')),
-  voteCount: z.number().optional(), // Keep voteCount for displaying results, but don't save it
+  voteCount: z.number().optional(), 
 });
 
 const positionSchema = z.object({
@@ -65,39 +44,15 @@ const positionSchema = z.object({
 const electionRoomFormSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
-  isAccessRestricted: z.boolean().default(false),
-  accessCode: z.string().optional(),
   deletionPassword: z.string().min(6, { message: "Deletion password must be at least 6 characters." }),
   positions: z.array(positionSchema).min(1, "At least one position is required."),
   status: z.enum(["pending", "active", "closed"]).optional(),
-}).refine(data => {
-  if (data.isAccessRestricted && (!data.accessCode || data.accessCode.length < 4)) {
-    return false;
-  }
-  return true;
-}, {
-  message: "Access code must be at least 4 characters if access is restricted.",
-  path: ["accessCode"],
 }).refine(data => {
     const titles = data.positions.map(p => p.title.toLowerCase().trim());
     const uniqueTitles = new Set(titles);
     return uniqueTitles.size === titles.length;
 }, {
     message: "Each position must be unique.",
-    path: ["positions"],
-}).refine(data => {
-    const lowercasedPredefined = PREDEFINED_POSITIONS.map(p => p.toLowerCase());
-    const titles = data.positions.map(p => p.title.toLowerCase().trim());
-    const isCustomTitleConflict = titles.some(title => {
-        const isPredefined = lowercasedPredefined.includes(title);
-        // This logic seems complex, let's simplify validation.
-        // The main point is that a custom title shouldn't be a predefined one.
-        // We can handle this at the input level.
-        return false; // Disabling this refine for now, will handle in component
-    });
-    return true;
-}, {
-    message: "Custom position title cannot be a predefined position name.",
     path: ["positions"],
 });
 
@@ -108,7 +63,6 @@ interface ElectionRoomFormProps {
   initialData?: ElectionRoom; 
 }
 
-// Helper to generate client-side unique IDs
 const generateClientSideId = (prefix: string = "item") => `${prefix}-${Math.random().toString(36).substr(2, 9)}`;
 
 
@@ -125,28 +79,24 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
     defaultValues: initialData ? {
       title: initialData.title || "",
       description: initialData.description || "",
-      isAccessRestricted: initialData.isAccessRestricted || false,
-      accessCode: initialData.accessCode || "",
       deletionPassword: initialData.deletionPassword || "",
       status: initialData.status || "pending",
       positions: (initialData.positions || []).map(p => ({
-        id: p.id, // Use Firestore ID for our data model
+        id: p.id,
         title: p.title || "",
         candidates: (p.candidates || []).map(c => ({
-          id: c.id, // Use Firestore ID for our data model
+          id: c.id,
           name: c.name || "",
           imageUrl: c.imageUrl || "",
           voteCount: c.voteCount || 0,
         })),
       })),
-    } : { // For new forms
+    } : {
       title: "",
       description: "",
-      isAccessRestricted: false,
-      accessCode: "",
       deletionPassword: "",
       status: "pending",
-      positions: [], // Initialize as empty, will be populated by useEffect
+      positions: [],
     },
   });
   
@@ -155,17 +105,14 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
     name: "positions",
   });
   
-  const currentPositions = form.watch("positions");
-
-  // Populate initial position for new forms on client mount
   useEffect(() => {
     setIsFormMounted(true);
     if (!initialData && positionFields.length === 0 && form.formState.isMounted) {
       appendPosition({
-        id: generateClientSideId('pos'), // Application-specific ID
+        id: generateClientSideId('pos'),
         title: "",
         candidates: [{
-          id: generateClientSideId('cand'), // Application-specific ID
+          id: generateClientSideId('cand'),
           name: "",
           imageUrl: ""
         }]
@@ -173,38 +120,29 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
     }
   }, [initialData, appendPosition, positionFields.length, form.formState.isMounted]);
   
-  const watchIsAccessRestricted = form.watch("isAccessRestricted");
-
-
   async function onSubmit(values: ElectionRoomFormValues) {
     setIsLoading(true);
 
     const firestoreReadyPositions = values.positions.map(p => ({
-        id: p.id || generateClientSideId('pos'), // Ensure ID for Firestore
+        id: p.id || generateClientSideId('pos'),
         title: p.title,
         candidates: p.candidates.map(c => ({
-            id: c.id || generateClientSideId('cand'), // Ensure ID for Firestore
+            id: c.id || generateClientSideId('cand'),
             name: c.name,
             imageUrl: c.imageUrl,
-            // DO NOT SAVE VOTE COUNT. It is now aggregated from the 'votes' subcollection.
         })),
     }));
 
     const dataToSave: any = { 
       title: values.title,
       description: values.description,
-      isAccessRestricted: values.isAccessRestricted,
+      isAccessRestricted: false, // Explicitly set to false
+      accessCode: null, // Explicitly set to null
       deletionPassword: values.deletionPassword,
       positions: firestoreReadyPositions,
-      roomType: initialData?.roomType || 'voting', // Preserve room type
-      status: values.status || 'pending', // Ensure status is always set
+      roomType: initialData?.roomType || 'voting',
+      status: values.status || 'pending',
     };
-
-    if (values.isAccessRestricted) {
-      dataToSave.accessCode = values.accessCode;
-    } else {
-      dataToSave.accessCode = null; 
-    }
     
     try {
       if (initialData?.id) {
@@ -219,7 +157,6 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           description: `"${values.title}" has been successfully updated.`,
         });
       } else {
-        // New room explicitly sets status to pending if not provided (though schema default handles it)
         dataToSave.status = dataToSave.status || 'pending';
         await addDoc(collection(db, "electionRooms"), {
           ...dataToSave,
@@ -245,7 +182,6 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
   }
   
   if (!isFormMounted && !initialData) {
-    // Render a loader or minimal content until the form is ready for new entries
     return (
       <div className="flex justify-center items-center p-8">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -286,94 +222,36 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
         />
 
         {initialData && (
-          initialData.roomType === 'review' ? (
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
-                  <div className="space-y-0.5">
-                    <FormLabel className="text-base">
-                      {field.value === 'active' ? 'Room is Active' : 'Room is Inactive'}
-                    </FormLabel>
-                    <FormDescription>
-                      Turn this on to allow reviews. Turning it off will close the room.
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value === 'active'}
-                      onCheckedChange={(checked) => {
-                        const newStatus = checked ? 'active' : 'closed';
-                        field.onChange(newStatus);
-                      }}
-                      aria-label="Room Status Toggle"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          ) : (
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Election Status</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} >
-                    <FormControl>
-                      <SelectTrigger suppressHydrationWarning={true}>
-                        <SelectValue placeholder="Select election status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending (Not yet open for voting)</SelectItem>
-                      <SelectItem value="active">Active (Open for voting)</SelectItem>
-                      <SelectItem value="closed">Closed (Voting has ended)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    Manage the current state. Set to 'Active' to start the election and allow voting.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )
-        )}
-
-
-        <FormField
-          control={form.control}
-          name="isAccessRestricted"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} suppressHydrationWarning={true}/>
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>Restrict Access?</FormLabel>
-                <FormDescription>
-                  If checked, participants will need an access code to enter this room.
-                </FormDescription>
-              </div>
-            </FormItem>
-          )}
-        />
-        {watchIsAccessRestricted && (
           <FormField
             control={form.control}
-            name="accessCode"
+            name="status"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Access Code</FormLabel>
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">
+                    {field.value === 'active' ? 'Room is Active' : 'Room is Inactive'}
+                  </FormLabel>
+                  <FormDescription>
+                    Turn this on to allow voting. Turning it off will close the room.
+                  </FormDescription>
+                </div>
                 <FormControl>
-                  <Input placeholder="e.g., VOTE2024" {...field} suppressHydrationWarning={true} />
+                  <Switch
+                    checked={field.value === 'active'}
+                    onCheckedChange={(checked) => {
+                      // Keep 'pending' if it was pending, otherwise toggle between active/closed
+                      const currentStatus = form.getValues('status');
+                      let newStatus: 'pending' | 'active' | 'closed';
+                      if(currentStatus === 'pending' && !checked) {
+                        newStatus = 'pending';
+                      } else {
+                        newStatus = checked ? 'active' : 'closed';
+                      }
+                      field.onChange(newStatus);
+                    }}
+                    aria-label="Room Status Toggle"
+                  />
                 </FormControl>
-                <FormDescription>
-                  A unique code for participants to access this room. Minimum 4 characters.
-                </FormDescription>
-                <FormMessage />
               </FormItem>
             )}
           />
@@ -420,23 +298,16 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
 
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Positions and Candidates</h3>
-          {positionFields.map((positionItem, positionIndex) => {
-            const availablePositions = PREDEFINED_POSITIONS.filter(p => 
-              !currentPositions.some((cp, cpi) => cpi !== positionIndex && cp.title === p)
-            );
-            
-            return (
-              <PositionCard
-                key={positionItem.id}
-                positionIndex={positionIndex}
-                removePosition={removePosition}
-                availablePositions={availablePositions}
-                form={form}
-                initialData={initialData}
-                isOnlyPosition={positionFields.length <= 1}
-              />
-            )
-          })}
+          {positionFields.map((positionItem, positionIndex) => (
+            <PositionCard
+              key={positionItem.id}
+              positionIndex={positionIndex}
+              removePosition={removePosition}
+              form={form}
+              initialData={initialData}
+              isOnlyPosition={positionFields.length <= 1}
+            />
+          ))}
           <Button
             type="button"
             variant="outline"
@@ -480,15 +351,13 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
 interface PositionCardProps {
   positionIndex: number;
   removePosition: (index: number) => void;
-  availablePositions: string[];
-  form: any; // React Hook Form's form object
+  form: any;
   initialData?: ElectionRoom;
   isOnlyPosition: boolean;
 }
 
-function PositionCard({ positionIndex, removePosition, availablePositions, form, initialData, isOnlyPosition }: PositionCardProps) {
-  const [popoverOpen, setPopoverOpen] = useState(false);
-  const { control, setValue } = form;
+function PositionCard({ positionIndex, removePosition, form, initialData, isOnlyPosition }: PositionCardProps) {
+  const { control } = form;
 
   return (
      <Card className="relative group/position">
@@ -513,71 +382,15 @@ function PositionCard({ positionIndex, removePosition, availablePositions, form,
         </div>
       </CardHeader>
       <CardContent className="p-4 space-y-4">
-         <FormField
+        <FormField
           control={control}
           name={`positions.${positionIndex}.title`}
           render={({ field }) => (
-            <FormItem className="flex flex-col">
+            <FormItem>
               <FormLabel>Position Title</FormLabel>
-              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className={cn(
-                        "w-full justify-between",
-                        !field.value && "text-muted-foreground"
-                      )}
-                    >
-                      {field.value || "Select or type a position..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command
-                    filter={(value, search) => {
-                      if (value.toLowerCase().includes(search.toLowerCase())) return 1;
-                      return 0;
-                    }}
-                  >
-                    <CommandInput
-                      placeholder="Search or create position..."
-                      value={field.value || ''}
-                      onValueChange={(search) => {
-                         setValue(`positions.${positionIndex}.title`, search, { shouldValidate: true });
-                      }}
-                    />
-                    <CommandList>
-                      <CommandEmpty>No predefined position found.</CommandEmpty>
-                      <CommandGroup>
-                        {availablePositions.map((pos) => (
-                          <CommandItem
-                            value={pos}
-                            key={pos}
-                            onSelect={() => {
-                              setValue(`positions.${positionIndex}.title`, pos, { shouldValidate: true });
-                              setPopoverOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                pos === field.value ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {pos}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              <FormDescription>
-                Select a predefined position or type to create a new one.
-              </FormDescription>
+              <FormControl>
+                <Input placeholder="e.g., President" {...field} suppressHydrationWarning={true} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -617,7 +430,7 @@ function CandidateFields({ positionIndex, control, form, roomType }: CandidateFi
 
   const handleFileChange = async (
     event: ChangeEvent<HTMLInputElement>,
-    rhfCandidateId: string, // This is the RHF field id (candidateItem.id)
+    rhfCandidateId: string,
     candidateIndex: number
   ) => {
     const file = event.target.files?.[0];
@@ -638,7 +451,7 @@ function CandidateFields({ positionIndex, control, form, roomType }: CandidateFi
     } finally {
       setUploadingStates(prev => ({ ...prev, [rhfCandidateId]: false }));
       if (event.target) {
-        event.target.value = ""; // Reset file input
+        event.target.value = "";
       }
     }
   };
@@ -653,9 +466,8 @@ function CandidateFields({ positionIndex, control, form, roomType }: CandidateFi
       <h4 className="text-sm font-medium text-muted-foreground">
         {roomType === 'review' ? "Person to be Reviewed:" : "Candidates for this position:"}
       </h4>
-      {candidatesToRender.map((candidateItem, candidateIndex) => { // candidateItem.id IS the stable RHF field ID
+      {candidatesToRender.map((candidateItem, candidateIndex) => {
         const currentImageUrl = form.watch(`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`);
-        // Use RHF's stable candidateItem.id for generating a unique ID for the file input
         const uniqueFileIdForInput = isClientMounted ? `file-upload-${candidateItem.id}` : undefined;
 
         return (
@@ -689,14 +501,13 @@ function CandidateFields({ positionIndex, control, form, roomType }: CandidateFi
                   name={`positions.${positionIndex}.candidates.${candidateIndex}.imageUrl`}
                   render={({ field }) => ( 
                     <Input
-                      id={uniqueFileIdForInput} // Use client-side generated ID based on RHF's field.id
+                      id={uniqueFileIdForInput}
                       type="file"
                       accept="image/*"
                       onChange={(e) => handleFileChange(e, candidateItem.id, candidateIndex)}
                       className="mt-2 text-xs h-8"
                       disabled={uploadingStates[candidateItem.id]}
-                      suppressHydrationWarning={true} 
-                      // field.value (imageUrl string) is handled by RHF setValue, file input value is not directly controlled for files
+                      suppressHydrationWarning={true}
                     />
                   )}
                 />
