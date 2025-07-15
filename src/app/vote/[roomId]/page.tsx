@@ -6,13 +6,13 @@ import { useEffect, useState } from "react";
 import { useParams, notFound, useRouter } from "next/navigation";
 import { getElectionRoomById, submitBallot, submitReview, recordParticipantEntry } from "@/lib/electionRoomService";
 import type { ElectionRoom, Position } from "@/lib/types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Send, ArrowRight, ArrowLeft, ThumbsUp, ThumbsDown, Loader2, Info, ShieldCheck } from "lucide-react";
+import { Check, Send, ArrowRight, ArrowLeft, ThumbsUp, ThumbsDown, Loader2, Info, ShieldCheck, X } from "lucide-react";
 import StarRating from "@/components/app/StarRating";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -489,6 +489,13 @@ export default function VotingPage() {
                         Thank you for your participation. Your {room.roomType === 'review' ? 'review' : 'ballot'} has been securely recorded. You may now close this window.
                     </CardDescription>
                 </CardHeader>
+                <CardFooter className="justify-center">
+                    <Button asChild variant="outline">
+                        <a href="https://www.google.com">
+                            <X className="mr-2 h-4 w-4" /> Close
+                        </a>
+                    </Button>
+                </CardFooter>
             </Card>
             <style jsx>{`
               .checkmark {
@@ -622,6 +629,7 @@ export default function VotingPage() {
     </div>
   );
 }
+
 
 
 
