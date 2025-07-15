@@ -9,7 +9,7 @@ import { getElectionRoomById } from "@/lib/electionRoomService";
 import type { ElectionRoom, Candidate } from "@/lib/types";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, BarChartHorizontalBig, PieChartIcon, AlertTriangle, Trophy } from "lucide-react";
+import { ArrowLeft, Download, BarChartHorizontalBig, AlertTriangle, Trophy, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ResultsTable from "@/components/app/admin/ResultsTable";
@@ -18,7 +18,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResultsLoading from "./loading";
 import Image from "next/image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { jsPDF } from "jspdf";
+import autoTable from 'jspdf-autotable';
+import ResultsPdfLayout from "@/components/app/admin/ResultsPdfLayout";
+
 
 interface LeaderboardCandidate extends Candidate {
   positionTitle: string;
@@ -95,6 +98,7 @@ export default function ElectionResultsPage() {
   
   const [room, setRoom] = useState<ElectionRoom | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -129,6 +133,55 @@ export default function ElectionResultsPage() {
     return () => unsubscribe();
   }, [roomId, router]);
 
+  const handleExportPdf = async () => {
+    if (!room) return;
+    setIsExporting(true);
+
+    const doc = new jsPDF();
+
+    const title = `${room.title} - Results`;
+    const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+    // Set document properties
+    doc.setProperties({ title: title });
+
+    // Use autoTable for title and description to handle text wrapping
+    autoTable(doc, {
+      body: [
+        [{ content: room.title, styles: { fontSize: 18, fontStyle: 'bold' } }],
+        [{ content: room.description, styles: { fontSize: 12 } }],
+        [{ content: `Generated on: ${new Date().toLocaleString()}`, styles: { fontSize: 9, textColor: '#777' } }],
+      ],
+      theme: 'plain',
+      styles: {
+        cellPadding: { top: 1, right: 0, bottom: 1, left: 0 }
+      }
+    });
+
+    // Add Detailed Results table
+    autoTable(doc, {
+      html: '#pdf-results-table',
+      startY: (doc as any).lastAutoTable.finalY + 10,
+      headStyles: { fillColor: [0, 121, 107] }, // #00796B
+      didParseCell: (data) => {
+        // Remove images from PDF, as they complicate things
+         if (data.cell.querySelector('img')) {
+          data.cell.text = '';
+        }
+      }
+    });
+    
+    // Add Overall Leaderboard table
+    autoTable(doc, {
+      html: '#pdf-leaderboard-table',
+       startY: (doc as any).lastAutoTable.finalY + 10,
+      headStyles: { fillColor: [0, 121, 107] }, // #00796B
+    });
+
+    doc.save(`${safeTitle}.pdf`);
+    setIsExporting(false);
+  };
+
   if (loading) {
     return <ResultsLoading />;
   }
@@ -159,6 +212,7 @@ export default function ElectionResultsPage() {
   }
 
   return (
+    <>
     <div className="space-y-8">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -170,8 +224,9 @@ export default function ElectionResultsPage() {
             <h1 className="text-3xl font-bold font-headline mt-2">Results: {room.title}</h1>
             <p className="text-muted-foreground">{room.description}</p>
         </div>
-        <Button disabled className="w-full sm:w-auto">
-          <Download className="mr-2 h-4 w-4" /> Export as PDF (Coming Soon)
+        <Button onClick={handleExportPdf} disabled={isExporting} className="w-full sm:w-auto">
+          {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+          {isExporting ? 'Exporting...' : 'Export as PDF'}
         </Button>
       </div>
 
@@ -209,7 +264,10 @@ export default function ElectionResultsPage() {
             <OverallLeaderboard room={room} />
         </TabsContent>
       </Tabs>
-
     </div>
+    <div className="hidden">
+      <ResultsPdfLayout room={room} />
+    </div>
+    </>
   );
 }
