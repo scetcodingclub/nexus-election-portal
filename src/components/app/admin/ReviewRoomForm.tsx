@@ -488,7 +488,7 @@ function PositionCard({ positionIndex, removePosition, availablePositions, form,
                   </FormControl>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command shouldFilter={false}>
+                  <Command>
                     <CommandInput 
                       placeholder="Search or create position..."
                       value={field.value || ''}
@@ -509,8 +509,8 @@ function PositionCard({ positionIndex, removePosition, availablePositions, form,
                           <CommandItem
                             value={pos}
                             key={pos}
-                            onSelect={() => {
-                              form.setValue(`positions.${positionIndex}.title`, pos, { shouldValidate: true });
+                            onSelect={(currentValue) => {
+                              form.setValue(`positions.${positionIndex}.title`, currentValue, { shouldValidate: true });
                               setPopoverOpen(false);
                             }}
                           >
