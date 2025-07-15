@@ -182,7 +182,7 @@ const ReviewPositionCard = ({
         </div>
       </div>
       <div>
-        <Label htmlFor={`feedback-${position.id}`}>Feedback (Required)</Label>
+        <Label htmlFor={`feedback-${position.id}`}>Feedback (Required: 10-500 characters)</Label>
         <Textarea 
           id={`feedback-${position.id}`}
           placeholder="Enter your detailed feedback here..." 
@@ -190,8 +190,11 @@ const ReviewPositionCard = ({
           value={selection.feedback}
           onChange={(e) => onSelectionChange({ feedback: e.target.value })}
           rows={5}
+          minLength={10}
+          maxLength={500}
           required
         />
+         <p className="text-xs text-muted-foreground mt-1 text-right">{selection.feedback.length} / 500</p>
       </div>
     </CardContent>
   </Card>
@@ -406,8 +409,8 @@ export default function VotingPage() {
         toast({ variant: "destructive", title: "Incomplete", description: "Please provide a star rating before proceeding." });
         return;
       }
-      if (!currentReview.feedback || currentReview.feedback.trim() === '') {
-        toast({ variant: "destructive", title: "Incomplete", description: "Please provide written feedback before proceeding." });
+      if (!currentReview.feedback || currentReview.feedback.trim().length < 10) {
+        toast({ variant: "destructive", title: "Incomplete", description: "Please provide written feedback of at least 10 characters." });
         return;
       }
     }
@@ -429,8 +432,12 @@ export default function VotingPage() {
     if (room.roomType === 'review') {
       const currentPositionId = room.positions[currentPositionIndex].id;
       const currentReview = selections[currentPositionId];
-      if (!currentReview || currentReview.rating === 0 || !currentReview.feedback.trim()) {
-        toast({ variant: "destructive", title: "Incomplete Final Step", description: "Please provide a rating and feedback for the last item." });
+      if (!currentReview || currentReview.rating === 0) {
+        toast({ variant: "destructive", title: "Incomplete", description: "Please provide a star rating before submitting." });
+        return;
+      }
+      if (!currentReview.feedback || currentReview.feedback.trim().length < 10) {
+        toast({ variant: "destructive", title: "Incomplete", description: "Please provide written feedback of at least 10 characters." });
         return;
       }
     }
@@ -629,7 +636,3 @@ export default function VotingPage() {
     </div>
   );
 }
-
-
-
-

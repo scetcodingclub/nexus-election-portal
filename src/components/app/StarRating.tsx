@@ -60,8 +60,8 @@ const StarRating = ({
             onMouseMove={(e) => handleMouseMove(e, index)}
             disabled={disabled}
             className={cn(
-              "p-1 transition-transform duration-200",
-              !disabled && "hover:scale-125 focus:outline-none focus:ring-2 focus:ring-primary rounded-full"
+              "p-1 transition-transform duration-200 focus:outline-none focus:ring-0",
+              !disabled && "hover:scale-125"
             )}
             aria-label={`Rate ${starValue} star${starValue > 1 ? 's' : ''}`}
           >
