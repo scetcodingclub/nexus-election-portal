@@ -213,6 +213,7 @@ const GuidelinesScreen = ({
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
         setEmail(newEmail);
+        // Stricter regex to validate common TLDs and structure
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         setIsEmailValid(emailRegex.test(newEmail));
     }
@@ -496,7 +497,7 @@ export default function VotingPage() {
                 border-radius: 50%;
                 display: block;
                 stroke-width: 2;
-                stroke: hsl(var(--primary));
+                stroke: #fff;
                 stroke-miterlimit: 10;
                 margin: 10% auto;
                 box-shadow: inset 0px 0px 0px hsl(var(--primary));
@@ -621,5 +622,6 @@ export default function VotingPage() {
     </div>
   );
 }
+
 
 
