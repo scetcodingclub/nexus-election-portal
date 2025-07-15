@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import type { ElectionRoom } from "@/lib/types"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Loader2, GripVertical } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, GripVertical, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebaseClient"; 
 import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore"; 
@@ -71,6 +71,8 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isFormMounted, setIsFormMounted] = useState(false);
+  const [showDeletionPassword, setShowDeletionPassword] = useState(false);
+
 
   const form = useForm<ReviewRoomFormValues>({
     resolver: zodResolver(reviewRoomFormSchema),
@@ -298,7 +300,29 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
             <FormItem>
               <FormLabel>Deletion Password</FormLabel>
               <FormControl>
-                <Input type="password" placeholder="Enter a secure password for deletion" {...field} suppressHydrationWarning={true} />
+                <div className="relative">
+                  <Input
+                    type={showDeletionPassword ? "text" : "password"}
+                    placeholder="Enter a secure password for deletion"
+                    {...field}
+                    suppressHydrationWarning={true}
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowDeletionPassword((prev) => !prev)}
+                    aria-label={showDeletionPassword ? "Hide password" : "Show password"}
+                  >
+                    {showDeletionPassword ? (
+                      <EyeOff className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </Button>
+                </div>
               </FormControl>
               <FormDescription>
                 This password will be required to delete the room. Minimum 6 characters.
@@ -439,5 +463,7 @@ function SimpleCandidateFields({ positionIndex, control, form }: SimpleCandidate
     </div>
   );
 }
+
+    
 
     
