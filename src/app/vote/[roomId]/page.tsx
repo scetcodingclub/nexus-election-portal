@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Send, ArrowRight, ArrowLeft, ThumbsUp, ThumbsDown, Loader2, Info, ShieldCheck, X, UserCheck } from "lucide-react";
+import { Check, Send, ArrowRight, ArrowLeft, Loader2, Info, ShieldCheck, X, UserCheck, Hand, Circle } from "lucide-react";
 import StarRating from "@/components/app/StarRating";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -84,9 +84,9 @@ const VotingPositionCard = ({
           >
             <div className="flex-shrink-0">
               {isSelected ? (
-                <ThumbsUp className="h-6 w-6 text-primary" />
+                <Hand className="h-6 w-6 text-primary" />
               ) : (
-                <ThumbsDown className="h-6 w-6 text-muted-foreground" />
+                <Circle className="h-6 w-6 text-muted-foreground" />
               )}
             </div>
             <Image
@@ -140,9 +140,9 @@ const SingleCandidatePositionCard = ({
         >
           <div className="flex-shrink-0">
             {isVotedFor ? (
-              <ThumbsUp className="h-6 w-6 text-green-600" />
+              <Hand className="h-6 w-6 text-green-600" />
             ) : (
-              <ThumbsDown className="h-6 w-6 text-muted-foreground" />
+              <Circle className="h-6 w-6 text-muted-foreground" />
             )}
           </div>
           <Image
