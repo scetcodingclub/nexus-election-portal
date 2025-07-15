@@ -404,39 +404,45 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
                       name={`positions.${positionIndex}.title`}
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
-                          <FormLabel>Position Title</FormLabel>
+                            <FormLabel>Position Title</FormLabel>
                             <Popover>
                                 <PopoverTrigger asChild>
                                 <FormControl>
-                                    <div className="relative">
-                                        <CommandInput 
-                                            asChild
-                                            value={field.value}
-                                            onValueChange={field.onChange}
-                                        >
-                                            <Input
-                                                placeholder="Select or type a position..."
-                                                className="pr-8"
-                                            />
-                                        </CommandInput>
-                                        <ChevronsUpDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 shrink-0 opacity-50" />
-                                    </div>
+                                    <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn(
+                                        "w-full justify-between",
+                                        !field.value && "text-muted-foreground"
+                                    )}
+                                    >
+                                    {field.value
+                                        ? PREDEFINED_POSITIONS.find(
+                                            (pos) => pos === field.value
+                                        ) || field.value
+                                        : "Select or type a position..."}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
                                 </FormControl>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                <Command
-                                    value={field.value}
-                                    onValueChange={field.onChange}
-                                >
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                                <Command shouldFilter={false}>
+                                    <CommandInput 
+                                        placeholder="Search or create position..."
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                    />
                                     <CommandList>
                                     <CommandEmpty>No predefined position found.</CommandEmpty>
                                     <CommandGroup>
-                                        {availablePositions.map((pos) => (
+                                        {availablePositions
+                                        .filter(pos => pos.toLowerCase().includes((field.value || '').toLowerCase()))
+                                        .map((pos) => (
                                         <CommandItem
                                             value={pos}
                                             key={pos}
                                             onSelect={(currentValue) => {
-                                                form.setValue(`positions.${positionIndex}.title`, currentValue === field.value ? "" : currentValue, { shouldValidate: true });
+                                                form.setValue(`positions.${positionIndex}.title`, currentValue, { shouldValidate: true });
                                             }}
                                         >
                                             <Check
@@ -453,10 +459,10 @@ export default function ReviewRoomForm({ initialData }: ReviewRoomFormProps) {
                                 </Command>
                                 </PopoverContent>
                             </Popover>
-                          <FormDescription>
-                            Select a predefined position or type to create a new one.
-                          </FormDescription>
-                          <FormMessage />
+                            <FormDescription>
+                                Select a predefined position or type to create a new one.
+                            </FormDescription>
+                            <FormMessage />
                         </FormItem>
                       )}
                     />
