@@ -85,7 +85,8 @@ const reviewRoomFormSchema = z.object({
     path: ["positions"],
 }).refine(data => {
     const lowercasedPredefined = PREDEFINED_POSITIONS.map(p => p.toLowerCase());
-    return !data.positions.some(p => p.title.toLowerCase().trim() === 'custom' && lowercasedPredefined.includes(p.title.toLowerCase().trim()));
+    const titles = data.positions.map(p => p.title.toLowerCase().trim());
+    return !titles.some(title => lowercasedPredefined.includes(title) && title !== 'custom');
 }, {
     message: "Custom position title cannot be a predefined position name.",
     path: ["positions"],
@@ -436,6 +437,7 @@ interface PositionCardProps {
 
 function PositionCard({ positionIndex, removePosition, availablePositions, form, isOnlyPosition }: PositionCardProps) {
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const { control, setValue } = form;
 
   return (
     <Card className="relative group/position">
@@ -461,7 +463,7 @@ function PositionCard({ positionIndex, removePosition, availablePositions, form,
       </CardHeader>
       <CardContent className="p-4 space-y-4">
         <FormField
-          control={form.control}
+          control={control}
           name={`positions.${positionIndex}.title`}
           render={({ field }) => (
             <FormItem className="flex flex-col">
@@ -478,11 +480,7 @@ function PositionCard({ positionIndex, removePosition, availablePositions, form,
                         !field.value && "text-muted-foreground"
                       )}
                     >
-                      {field.value
-                        ? PREDEFINED_POSITIONS.find(
-                            (pos) => pos === field.value
-                          ) || field.value
-                        : "Select or type a position..."}
+                      {field.value || "Select or type a position..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </FormControl>
@@ -491,9 +489,7 @@ function PositionCard({ positionIndex, removePosition, availablePositions, form,
                   <Command>
                     <CommandInput 
                       placeholder="Search or create position..."
-                      value={field.value || ''}
-                      onValueChange={field.onChange}
-                      onKeyDown={(e) => {
+                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
                           setPopoverOpen(false);
@@ -503,26 +499,32 @@ function PositionCard({ positionIndex, removePosition, availablePositions, form,
                     <CommandList>
                       <CommandEmpty>No predefined position found.</CommandEmpty>
                       <CommandGroup>
-                        {availablePositions
-                          .filter(pos => pos.toLowerCase().includes((field.value || '').toLowerCase()))
-                          .map((pos) => (
-                          <CommandItem
-                            value={pos}
-                            key={pos}
-                            onSelect={(currentValue) => {
-                              form.setValue(`positions.${positionIndex}.title`, currentValue, { shouldValidate: true });
-                              setPopoverOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                pos === field.value ? "opacity-100" : "opacity-0"
-                              )}
-                            />
-                            {pos}
-                          </CommandItem>
-                        ))}
+                         <Controller
+                          control={control}
+                          name={`positions.${positionIndex}.title`}
+                          render={({ field: controllerField }) => (
+                            <>
+                              {availablePositions.map((pos) => (
+                                <CommandItem
+                                  value={pos}
+                                  key={pos}
+                                  onSelect={() => {
+                                    setValue(`positions.${positionIndex}.title`, pos, { shouldValidate: true });
+                                    setPopoverOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      pos === controllerField.value ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {pos}
+                                </CommandItem>
+                              ))}
+                            </>
+                          )}
+                        />
                       </CommandGroup>
                     </CommandList>
                   </Command>
