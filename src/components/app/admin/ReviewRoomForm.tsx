@@ -25,6 +25,8 @@ import { PlusCircle, Trash2, Loader2, GripVertical } from "lucide-react";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebaseClient"; 
 import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { facultyRoles, clubAuthorities, clubOperationTeam } from "@/lib/roles";
 
 const candidateSchema = z.object({
   id: z.string().optional(), 
@@ -301,6 +303,7 @@ interface PositionCardProps {
 
 function PositionCard({ positionIndex, removePosition, form, isOnlyPosition }: PositionCardProps) {
   const { control } = form;
+  const allElectionRoles = [...facultyRoles, ...clubAuthorities, ...clubOperationTeam];
 
   return (
     <Card className="relative group/position">
@@ -331,9 +334,18 @@ function PositionCard({ positionIndex, removePosition, form, isOnlyPosition }: P
           render={({ field }) => (
             <FormItem>
               <FormLabel>Position Title</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., President" {...field} suppressHydrationWarning={true} />
-              </FormControl>
+               <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a position title" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {allElectionRoles.map(role => (
+                      <SelectItem key={role} value={role}>{role}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               <FormMessage />
             </FormItem>
           )}

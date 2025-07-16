@@ -22,6 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator, SelectLabel, SelectGroup } from "@/components/ui/select";
+import { facultyRoles, clubAuthorities, clubOperationTeam, generalClubRoles } from "@/lib/roles";
 
 
 function VotingSkeleton() {
@@ -229,12 +230,8 @@ const GuidelinesScreen = ({
     }
     
     const startButtonText = room.roomType === 'review' ? 'Start Review' : 'Start Voting';
-    
-    const facultyRoles = ["Coordinator"];
-    const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
-    const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
-    const generalClubRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
 
+    // The roles that appear in the election should not be selectable from the dropdown
     const electionPositionTitles = room.positions.map(p => p.title.toLowerCase());
     
     return (
@@ -412,14 +409,14 @@ export default function VotingPage() {
     const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
     
     if (result.success) {
+        // Define which roles are allowed to skip/abstain
+        const skippableRoles = [...facultyRoles, ...generalClubRoles];
+        const canSkip = skippableRoles.some(role => role.toLowerCase() === ownPositionTitle.toLowerCase());
+        
         // Correctly filter out the user's own position from the ballot
         const positionsToShow = room.positions.filter(
             (p) => p.title.toLowerCase() !== ownPositionTitle.toLowerCase()
         );
-
-        // Define which roles can skip positions (Coordinator + General Roles)
-        const generalRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
-        const canSkip = ownPositionTitle === 'Coordinator' || generalRoles.includes(ownPositionTitle);
 
         // Prepare the initial selections state for the ballot
         const initialSelections: Record<string, any> = {};
@@ -432,10 +429,10 @@ export default function VotingPage() {
         });
         
         // Update all states together to trigger a single re-render
-        setVoterEmail(email);
         setFilteredPositions(positionsToShow);
         setSelections(initialSelections);
-        setIsCoordinator(canSkip);
+        setIsCoordinator(canSkip); // This state now correctly represents if a user can skip
+        setVoterEmail(email);
         setHasStarted(true);
 
     } else {
@@ -499,7 +496,7 @@ export default function VotingPage() {
 
   const handleBack = () => {
     if (currentPositionIndex <= 0) return;
-    setCurrentPositionIndex(currentPositionIndex + 1);
+    setCurrentPositionIndex(currentPositionIndex - 1);
   };
   
   const handleSubmit = async () => {
