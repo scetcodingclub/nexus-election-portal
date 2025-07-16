@@ -12,7 +12,7 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebaseClient";
-import { updateEmail, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
+import { verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from "firebase/auth";
 
 const changeEmailSchema = z.object({
   newEmail: z.string().email({ message: "Please enter a valid email address." }),
@@ -45,11 +45,11 @@ export default function ChangeEmailForm() {
 
     try {
       await reauthenticateWithCredential(user, credential);
-      await updateEmail(user, values.newEmail);
+      await verifyBeforeUpdateEmail(user, values.newEmail);
       
       toast({
-        title: "Email Changed Successfully",
-        description: `Your new email is ${values.newEmail}. Please use it for your next login.`,
+        title: "Verification Email Sent",
+        description: `A verification link has been sent to ${values.newEmail}. Please click the link to finalize your email change.`,
       });
       router.push("/admin/dashboard");
     } catch (error: any) {
@@ -61,6 +61,8 @@ export default function ChangeEmailForm() {
         errorMessage = "This email address is already in use by another account.";
       } else if (error.code === 'auth/requires-recent-login') {
           errorMessage = "This action is sensitive and requires recent authentication. Please log out and log back in before trying again.";
+      } else if (error.code === 'auth/operation-not-allowed') {
+          errorMessage = "This operation is not allowed. Your Firebase project may require email verification to be enabled for this feature to work.";
       }
       toast({
         variant: "destructive",
