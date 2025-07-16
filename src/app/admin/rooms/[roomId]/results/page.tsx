@@ -170,7 +170,8 @@ export default function ElectionResultsPage() {
       ],
       theme: 'plain',
       styles: {
-        cellPadding: { top: 1, right: 0, bottom: 1, left: 0 }
+        cellPadding: { top: 1, right: 0, bottom: 1, left: 0 },
+        font: 'times',
       }
     });
     
@@ -207,7 +208,7 @@ export default function ElectionResultsPage() {
                     data.cell.text = '';
                 }
                 // Custom styling for winner rows
-                if (rawCell.classList && rawCell.classList.contains('winner-row')) {
+                if (data.row.raw && (data.row.raw as HTMLElement).classList?.contains('winner-row')) {
                     data.cell.styles.fillColor = 'transparent'; // Remove gray background
                     data.cell.styles.textColor = 'black'; // Ensure text is visible
                 }
