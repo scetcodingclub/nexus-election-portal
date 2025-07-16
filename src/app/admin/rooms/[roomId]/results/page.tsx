@@ -180,11 +180,12 @@ export default function ElectionResultsPage() {
       headStyles: { fillColor: [0, 121, 107] }, // #00796B
       didParseCell: (data) => {
         // Remove images from PDF, as they complicate things
-         if (data.cell.raw && (data.cell.raw as HTMLElement).querySelector('img')) {
+        const rawCell = data.cell.raw as HTMLElement;
+         if (rawCell && rawCell.querySelector('img')) {
           data.cell.text = '';
         }
          // Custom styling for winner rows
-        if (data.row.raw && (data.row.raw as HTMLElement).classList.contains('winner-row')) {
+        if (data.row.raw && (data.row.raw as HTMLElement).classList?.contains('winner-row')) {
             data.cell.styles.fillColor = 'transparent'; // Remove gray background
             data.cell.styles.textColor = 'black'; // Ensure text is visible
         }
