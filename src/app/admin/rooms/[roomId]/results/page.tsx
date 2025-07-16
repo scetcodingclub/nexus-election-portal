@@ -181,7 +181,7 @@ export default function ElectionResultsPage() {
       didParseCell: (data) => {
         // Remove images from PDF, as they complicate things
         const rawCell = data.cell.raw as HTMLElement;
-         if (rawCell && rawCell.querySelector('img')) {
+        if (rawCell && rawCell.querySelector('img')) {
           data.cell.text = '';
         }
          // Custom styling for winner rows
