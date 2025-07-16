@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getElectionRoomById } from "@/lib/electionRoomService";
 import type { ElectionRoom } from "@/lib/types";
 
-export default function VoterAccessPage() {
+function VoterAccessPage() {
   const [roomId, setRoomId] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -143,4 +143,20 @@ export default function VoterAccessPage() {
       </Card>
     </div>
   );
+}
+
+// Wrapper component to prevent SSR and hydration errors
+export default function VoterAccessClientPage() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    // Render nothing or a loading skeleton on the server and initial client render
+    return null; 
+  }
+
+  return <VoterAccessPage />;
 }
