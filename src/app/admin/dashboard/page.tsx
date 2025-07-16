@@ -207,13 +207,6 @@ export default function AdminDashboardPage() {
             <CardTitle className="text-2xl">No Voting Rooms Yet</CardTitle>
             <CardDescription>Get started by creating your first voting room.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button asChild size="lg">
-              <Link href="/admin/rooms/create">
-                <PlusCircle className="mr-2 h-5 w-5" /> Create Voting Room
-              </Link>
-            </Button>
-          </CardContent>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
