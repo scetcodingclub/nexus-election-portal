@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +9,7 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from "@/components/ui/dropdown-menu";
-import { Settings, LogOut, Mail, LockKeyhole } from "lucide-react";
+import { Settings, LogOut, LockKeyhole } from "lucide-react";
 import { ThemeToggle } from "@/components/app/ThemeToggle";
 import { auth } from "@/lib/firebaseClient";
 import { signOut, onAuthStateChanged, User } from "firebase/auth";
@@ -57,12 +56,6 @@ export default function HeaderActions() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-                <Link href="/admin/change-email">
-                    <Mail className="mr-2 h-4 w-4" />
-                    <span>Change Email</span>
-                </Link>
-            </DropdownMenuItem>
             <DropdownMenuItem asChild>
                 <Link href="/admin/change-password">
                     <LockKeyhole className="mr-2 h-4 w-4" />
