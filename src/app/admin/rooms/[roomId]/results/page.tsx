@@ -184,7 +184,7 @@ export default function ElectionResultsPage() {
           data.cell.text = '';
         }
          // Custom styling for winner rows
-        if ((data.row.raw as HTMLElement)?.classList.contains('winner-row')) {
+        if (data.row.raw && (data.row.raw as HTMLElement).classList.contains('winner-row')) {
             data.cell.styles.fillColor = 'transparent'; // Remove gray background
             data.cell.styles.textColor = 'black'; // Ensure text is visible
         }
