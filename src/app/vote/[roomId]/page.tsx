@@ -402,12 +402,14 @@ export default function VotingPage() {
     const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
     
     if (result.success) {
-        let positionsToShow: Position[];
+        // Correctly set coordinator/general role status first
         const coordinatorSelected = ownPositionTitle === 'Coordinator';
-        setIsCoordinator(coordinatorSelected);
+        const generalRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
+        const isGeneralRole = generalRoles.includes(ownPositionTitle);
+        setIsCoordinator(coordinatorSelected || isGeneralRole);
         
-        // Exclude the position the user holds from the ballot (case-insensitive)
-        positionsToShow = room.positions.filter(p => p.title.toLowerCase() !== ownPositionTitle.toLowerCase());
+        // Then, filter the positions to be shown on the ballot
+        const positionsToShow = room.positions.filter(p => p.title.toLowerCase() !== ownPositionTitle.toLowerCase());
         setFilteredPositions(positionsToShow);
 
         // Initialize selections for the filtered positions
@@ -485,7 +487,7 @@ export default function VotingPage() {
 
   const handleBack = () => {
     if (currentPositionIndex <= 0) return;
-    setCurrentPositionIndex(currentPositionIndex - 1);
+    setCurrentPositionIndex(currentPositionIndex + 1);
   };
   
   const handleSubmit = async () => {
