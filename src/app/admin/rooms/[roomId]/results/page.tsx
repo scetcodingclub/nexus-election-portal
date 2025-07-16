@@ -19,21 +19,34 @@ import ResultsLoading from "./loading";
 import Image from "next/image";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { jsPDF } from "jspdf";
-import autoTable from 'jspdf-autotable';
+import autoTable, { type UserOptions } from 'jspdf-autotable';
 import ResultsPdfLayout from "@/components/app/admin/ResultsPdfLayout";
 
 
 interface LeaderboardCandidate extends Candidate {
   positionTitle: string;
+  totalVotesInPosition: number;
 }
 
 function OverallLeaderboard({ room }: { room: ElectionRoom }) {
     const leaderboardData = useMemo(() => {
         if (!room || !room.positions) return [];
+
         const allCandidates: LeaderboardCandidate[] = [];
+        const positionTotals = new Map<string, number>();
+
+        room.positions.forEach(position => {
+            const totalVotes = position.candidates.reduce((sum, c) => sum + (c.voteCount || 0), 0);
+            positionTotals.set(position.id, totalVotes);
+        });
+
         room.positions.forEach(position => {
             position.candidates.forEach(candidate => {
-                allCandidates.push({ ...candidate, positionTitle: position.title });
+                allCandidates.push({ 
+                    ...candidate, 
+                    positionTitle: position.title,
+                    totalVotesInPosition: positionTotals.get(position.id) || 0,
+                });
             });
         });
         return allCandidates.sort((a, b) => (b.voteCount || 0) - (a.voteCount || 0));
@@ -80,7 +93,9 @@ function OverallLeaderboard({ room }: { room: ElectionRoom }) {
                                     </div>
                                 </TableCell>
                                 <TableCell>{candidate.positionTitle}</TableCell>
-                                <TableCell className="text-right font-bold text-lg">{candidate.voteCount || 0}</TableCell>
+                                <TableCell className="text-right font-bold text-lg">
+                                  {`${candidate.voteCount || 0} / ${candidate.totalVotesInPosition}`}
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -157,26 +172,42 @@ export default function ElectionResultsPage() {
         cellPadding: { top: 1, right: 0, bottom: 1, left: 0 }
       }
     });
-
-    // Add Detailed Results table
-    autoTable(doc, {
+    
+    const tableOptions: UserOptions = {
       html: '#pdf-results-table',
       startY: (doc as any).lastAutoTable.finalY + 10,
+      theme: 'grid',
       headStyles: { fillColor: [0, 121, 107] }, // #00796B
       didParseCell: (data) => {
         // Remove images from PDF, as they complicate things
          if (data.cell.raw && (data.cell.raw as HTMLElement).querySelector('img')) {
           data.cell.text = '';
         }
+         // Custom styling for winner rows
+        if ((data.row.raw as HTMLElement)?.classList.contains('winner-row')) {
+            data.cell.styles.fillColor = 'transparent'; // Remove gray background
+            data.cell.styles.textColor = 'black'; // Ensure text is visible
+        }
       }
-    });
+    };
+
+    // Add Detailed Results table
+    autoTable(doc, tableOptions);
     
     // Start Leaderboard on a new page
     doc.addPage();
+    
+    // Add leaderboard title
+    autoTable(doc, {
+       body: [[{ content: 'Overall Leaderboard', styles: { fontSize: 18, fontStyle: 'bold' } }]],
+       theme: 'plain'
+    });
 
     // Add Overall Leaderboard table
     autoTable(doc, {
       html: '#pdf-leaderboard-table',
+      startY: (doc as any).lastAutoTable.finalY + 2,
+      theme: 'grid',
       headStyles: { fillColor: [0, 121, 107] }, // #00796B
     });
 
