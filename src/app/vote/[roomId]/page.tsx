@@ -225,7 +225,7 @@ const GuidelinesScreen = ({
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
         setEmail(newEmail);
-        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/;
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.com$/i;
         setIsEmailValid(emailRegex.test(newEmail));
     }
     
@@ -298,7 +298,7 @@ const GuidelinesScreen = ({
                         autoFocus
                     />
                      {!isEmailValid && email.length > 0 && (
-                        <p className="text-sm text-destructive">Please enter a valid email address.</p>
+                        <p className="text-sm text-destructive">Please enter a valid email address ending in .com</p>
                     )}
                 </div>
 
@@ -402,16 +402,13 @@ export default function VotingPage() {
     const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
 
     if (result.success) {
-      // Define which roles have special privileges (like skipping)
       const skippableRoles = [...facultyRoles, ...generalClubRoles];
       const canSkip = skippableRoles.some(role => role.toLowerCase() === ownPositionTitle.toLowerCase());
       
-      // Filter out the user's own position from the ballot to prevent self-voting
       const positionsToShow = room.positions.filter(
         (p) => p.title.toLowerCase() !== ownPositionTitle.toLowerCase()
       );
 
-      // Prepare the initial selections state for the ballot
       const initialSelections: Record<string, any> = {};
       positionsToShow.forEach(p => {
         if (room.roomType === 'review') {
@@ -421,7 +418,6 @@ export default function VotingPage() {
         }
       });
       
-      // Update all states together to trigger a single re-render
       setFilteredPositions(positionsToShow);
       setSelections(initialSelections);
       setIsCoordinator(canSkip);
@@ -461,21 +457,17 @@ export default function VotingPage() {
   };
 
   const handleSkip = () => {
-      // Set selection for this position to null (abstain)
       const positionId = filteredPositions[currentPositionIndex].id;
       setSelections(prev => ({ ...prev, [positionId]: null }));
-      // Move to the next position
       if (currentPositionIndex < filteredPositions.length - 1) {
           setCurrentPositionIndex(currentPositionIndex + 1);
       } else {
-          // If it's the last question, user must click submit
       }
   };
 
   const handleNext = () => {
     if (!room || !filteredPositions || currentPositionIndex >= filteredPositions.length - 1) return;
     
-    // Bypass validation for coordinators in review rooms
     if (room.roomType === 'review' && !isCoordinator) {
       const currentPositionId = filteredPositions[currentPositionIndex].id;
       const currentReview = selections[currentPositionId];
@@ -498,7 +490,6 @@ export default function VotingPage() {
         return;
     }
 
-    // Final validation for review rooms before submitting (bypassed for coordinators)
     if (room.roomType === 'review' && !isCoordinator) {
       const currentPositionId = filteredPositions[currentPositionIndex].id;
       const currentReview = selections[currentPositionId];
@@ -512,7 +503,7 @@ export default function VotingPage() {
     let result;
     if (room.roomType === 'review') {
       const validSelections = Object.entries(selections).reduce((acc, [posId, sel]) => {
-          if (sel.rating > 0) { // Only submit if there's a rating
+          if (sel.rating > 0) {
               acc[posId] = sel;
           }
           return acc;
