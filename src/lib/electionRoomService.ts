@@ -1,6 +1,7 @@
 
 import { db, auth } from "@/lib/firebaseClient";
-import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, reauthenticateWithCredential, EmailAuthProvider } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 import type { ElectionRoom, Voter } from '@/lib/types';
 
 export async function getElectionRooms(): Promise<ElectionRoom[]> {
