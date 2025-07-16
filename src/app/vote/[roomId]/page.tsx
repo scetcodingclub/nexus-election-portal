@@ -225,6 +225,7 @@ const GuidelinesScreen = ({
     }
     
     const getPositionTitle = (id: string) => {
+      if (id === 'coordinator') return 'Coordinator';
       return room.positions.find(p => p.id === id)?.title || '';
     }
 
@@ -247,7 +248,7 @@ const GuidelinesScreen = ({
                                <ul className="list-disc pl-5 space-y-1">
                                   <li>Only authorized members are allowed. Your access is granted based on your email.</li>
                                   <li>You can enter the room only once. Refreshing or exiting after starting may lock your session.</li>
-                                  <li>To avoid self-voting, you must select your own position. That position will be excluded from your ballot.</li>
+                                  <li>To avoid self-voting, you must select your own position. That position will be excluded from your ballot. Coordinators may see all positions.</li>
                                   <li>Maintain honesty and neutrality. Sharing or discussing your selections is prohibited.</li>
                                   <li>Once submitted, no changes can be made. Ensure you have a stable internet connection.</li>
                                </ul>
@@ -308,6 +309,9 @@ const GuidelinesScreen = ({
                             <SelectValue placeholder="Select your current position..." />
                         </SelectTrigger>
                         <SelectContent>
+                            <SelectItem value="coordinator">
+                                Coordinator (View All Positions)
+                            </SelectItem>
                             {room.positions.map(pos => (
                                 <SelectItem key={pos.id} value={pos.id}>
                                     {pos.title}
@@ -315,7 +319,7 @@ const GuidelinesScreen = ({
                             ))}
                         </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">This is to prevent you from voting for your own position.</p>
+                    <p className="text-xs text-muted-foreground">This is to prevent you from voting for your own position. Coordinators are exempt.</p>
                 </div>
 
 
@@ -381,8 +385,16 @@ export default function VotingPage() {
     setVoterEmail(email);
     const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
     if (result.success) {
-        // Filter out the user's own position
-        const positionsToShow = room.positions.filter(p => p.id !== ownPositionId);
+        let positionsToShow: Position[];
+
+        if (ownPositionId === 'coordinator') {
+            // Coordinator sees all positions
+            positionsToShow = room.positions;
+        } else {
+            // Filter out the user's own position
+            positionsToShow = room.positions.filter(p => p.id !== ownPositionId);
+        }
+
         setFilteredPositions(positionsToShow);
 
         // Initialize selections for the filtered positions
@@ -397,7 +409,6 @@ export default function VotingPage() {
           });
         }
         setSelections(initialSelections);
-
         setHasStarted(true);
 
     } else {
