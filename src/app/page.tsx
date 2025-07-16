@@ -16,11 +16,13 @@ export default function Home() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] py-12">
-      <div className="text-center mb-12 h-24">
-        <h1 className="text-4xl md:text-5xl font-bold font-headline mb-4 animate-fade-in-up">
-          <TypingAnimation texts={welcomeTexts} />
-        </h1>
-        <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
+      <div className="text-center mb-16 px-2">
+        <div className="h-24 md:h-16 mb-6">
+            <h1 className="text-3xl md:text-5xl font-bold font-headline mb-4 animate-fade-in-up">
+            <TypingAnimation texts={welcomeTexts} />
+            </h1>
+        </div>
+        <p className="text-base md:text-xl text-muted-foreground max-w-3xl mx-auto">
           Securely manage elections and gather feedback with ease. Our platform ensures transparency and integrity for all your administrative needs.
         </p>
       </div>
@@ -29,8 +31,8 @@ export default function Home() {
         {/* Admin Panel Card */}
         <Card className="hover:shadow-xl transition-shadow duration-300 flex flex-col">
            <CardHeader>
-            <CardTitle className="flex items-center text-2xl font-headline">
-                <ShieldCheckIcon className="mr-2 h-8 w-8 text-primary" />
+            <CardTitle className="flex items-center text-xl md:text-2xl font-headline">
+                <ShieldCheckIcon className="mr-3 h-7 w-7 text-primary" />
                 Admin Panel
             </CardTitle>
             <CardDescription>
@@ -38,7 +40,7 @@ export default function Home() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-grow">
-             <p className="mb-4">
+             <p className="text-sm md:text-base">
               Login to access the administrator tools for creating, managing, and viewing results for all rooms.
             </p>
           </CardContent>
@@ -54,8 +56,8 @@ export default function Home() {
         {/* Voter Access Card */}
         <Card className="hover:shadow-xl transition-shadow duration-300 flex flex-col">
            <CardHeader>
-            <CardTitle className="flex items-center text-2xl font-headline">
-                <Vote className="mr-2 h-8 w-8 text-primary" />
+            <CardTitle className="flex items-center text-xl md:text-2xl font-headline">
+                <Vote className="mr-3 h-7 w-7 text-primary" />
                 Participant Access
             </CardTitle>
             <CardDescription>
@@ -63,7 +65,7 @@ export default function Home() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex-grow">
-             <p className="mb-4">
+             <p className="text-sm md:text-base">
               If you have a Room ID, you can access the voting or review page to make your submission.
             </p>
           </CardContent>
