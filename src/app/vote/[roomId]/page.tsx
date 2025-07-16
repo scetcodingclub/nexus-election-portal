@@ -230,14 +230,12 @@ const GuidelinesScreen = ({
     
     const startButtonText = room.roomType === 'review' ? 'Start Review' : 'Start Voting';
     
-    // Define the roles
     const facultyRoles = ["Coordinator"];
     const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
     const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
     const generalClubRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
 
-    // Combine roles that are not in the current election for the dropdown
-    const electionPositionTitles = new Set(room.positions.map(p => p.title));
+    const electionPositionTitles = new Set(room.positions.map(p => p.title.trim()));
     
     const authoritiesToShow = clubAuthorities.filter(r => !electionPositionTitles.has(r));
     const operationTeamToShow = clubOperationTeam.filter(r => !electionPositionTitles.has(r));
@@ -416,8 +414,8 @@ export default function VotingPage() {
         const coordinatorSelected = ownPositionTitle === 'Coordinator';
         setIsCoordinator(coordinatorSelected);
         
-        // Exclude the position the user holds from the ballot
-        positionsToShow = room.positions.filter(p => p.title !== ownPositionTitle);
+        // Exclude the position the user holds from the ballot (case-insensitive)
+        positionsToShow = room.positions.filter(p => p.title.toLowerCase() !== ownPositionTitle.toLowerCase());
         setFilteredPositions(positionsToShow);
 
         // Initialize selections for the filtered positions
@@ -495,7 +493,7 @@ export default function VotingPage() {
 
   const handleBack = () => {
     if (currentPositionIndex <= 0) return;
-    setCurrentPositionIndex(currentPositionIndex + 1);
+    setCurrentPositionIndex(currentPositionIndex - 1);
   };
   
   const handleSubmit = async () => {
