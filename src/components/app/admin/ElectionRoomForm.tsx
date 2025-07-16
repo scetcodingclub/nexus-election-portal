@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import type { ElectionRoom } from "@/lib/types"; 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon, Eye, EyeOff } from "lucide-react";
+import { PlusCircle, Trash2, Loader2, GripVertical, Image as ImageIcon } from "lucide-react";
 import { useState, ChangeEvent, useEffect } from "react";
 import Image from "next/image";
 import { storage, db } from "@/lib/firebaseClient"; 
@@ -44,7 +44,6 @@ const positionSchema = z.object({
 const electionRoomFormSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters." }),
   description: z.string().min(10, { message: "Description must be at least 10 characters." }),
-  deletionPassword: z.string().min(6, { message: "Deletion password must be at least 6 characters." }),
   positions: z.array(positionSchema).min(1, "At least one position is required."),
   status: z.enum(["pending", "active", "closed"]).optional(),
 }).refine(data => {
@@ -71,15 +70,12 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isFormMounted, setIsFormMounted] = useState(false);
-  const [showDeletionPassword, setShowDeletionPassword] = useState(false);
-
 
   const form = useForm<ElectionRoomFormValues>({
     resolver: zodResolver(electionRoomFormSchema),
     defaultValues: initialData ? {
       title: initialData.title || "",
       description: initialData.description || "",
-      deletionPassword: initialData.deletionPassword || "",
       status: initialData.status || "pending",
       positions: (initialData.positions || []).map(p => ({
         id: p.id,
@@ -94,7 +90,6 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
     } : {
       title: "",
       description: "",
-      deletionPassword: "",
       status: "pending",
       positions: [],
     },
@@ -138,7 +133,6 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
       description: values.description,
       isAccessRestricted: false, // Explicitly set to false
       accessCode: null, // Explicitly set to null
-      deletionPassword: values.deletionPassword,
       positions: firestoreReadyPositions,
       roomType: initialData?.roomType || 'voting',
       status: values.status || 'pending',
@@ -257,45 +251,6 @@ export default function ElectionRoomForm({ initialData }: ElectionRoomFormProps)
           />
         )}
         
-        <FormField
-          control={form.control}
-          name="deletionPassword"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Deletion Password</FormLabel>
-              <FormControl>
-                <div className="relative">
-                  <Input
-                    type={showDeletionPassword ? "text" : "password"}
-                    placeholder="Enter a secure password for deletion"
-                    {...field}
-                    suppressHydrationWarning={true}
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowDeletionPassword((prev) => !prev)}
-                    aria-label={showDeletionPassword ? "Hide password" : "Show password"}
-                  >
-                    {showDeletionPassword ? (
-                      <EyeOff className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </Button>
-                </div>
-              </FormControl>
-              <FormDescription>
-                This password will be required to delete the room. Minimum 6 characters.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
         <div className="space-y-4">
           <h3 className="text-lg font-medium">Positions and Candidates</h3>
           {positionFields.map((positionItem, positionIndex) => (

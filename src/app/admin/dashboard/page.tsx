@@ -101,7 +101,7 @@ export default function AdminDashboardPage() {
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<ElectionRoom | null>(null);
-  const [deletePassword, setDeletePassword] = useState("");
+  const [accountPassword, setAccountPassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   
 
@@ -129,14 +129,6 @@ export default function AdminDashboardPage() {
   }, [router]);
 
   const openDeleteDialog = (room: ElectionRoom) => {
-    if (!room.deletionPassword) {
-        toast({
-            variant: "destructive",
-            title: "Deletion Not Set Up",
-            description: "This room doesn't have a deletion password configured. Please set one in the 'Manage' page first.",
-        });
-        return;
-    }
     setRoomToDelete(room);
     setIsDeleteDialogOpen(true);
   };
@@ -146,7 +138,7 @@ export default function AdminDashboardPage() {
     if (!roomToDelete) return;
 
     setIsDeleting(true);
-    const result = await deleteElectionRoom(roomToDelete.id, deletePassword);
+    const result = await deleteElectionRoom(roomToDelete.id, accountPassword);
     
     if (result.success) {
       toast({
@@ -156,7 +148,7 @@ export default function AdminDashboardPage() {
       setElectionRooms(rooms => rooms.filter(r => r.id !== roomToDelete.id));
       setIsDeleteDialogOpen(false);
       setRoomToDelete(null);
-      setDeletePassword("");
+      setAccountPassword("");
     } else {
       toast({
         variant: "destructive",
@@ -281,24 +273,24 @@ export default function AdminDashboardPage() {
           <AlertDialogDescription>
             This action cannot be undone. This will permanently delete the room 
             <span className="font-bold"> "{roomToDelete?.title}" </span> 
-            and all of its data. To proceed, please enter the deletion password.
+            and all of its data. To proceed, please enter your account password to confirm.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <form onSubmit={handleConfirmDelete}>
           <div className="space-y-2 my-4">
-              <Label htmlFor="delete-password">Deletion Password</Label>
+              <Label htmlFor="account-password">Your Account Password</Label>
               <Input
-                  id="delete-password"
+                  id="account-password"
                   type="password"
-                  value={deletePassword}
-                  onChange={(e) => setDeletePassword(e.target.value)}
-                  placeholder="Enter deletion password"
+                  value={accountPassword}
+                  onChange={(e) => setAccountPassword(e.target.value)}
+                  placeholder="Enter your password"
                   autoFocus
               />
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setRoomToDelete(null); setDeletePassword(""); }}>Cancel</AlertDialogCancel>
-            <AlertDialogAction type="submit" disabled={isDeleting || !deletePassword}>
+            <AlertDialogCancel onClick={() => { setRoomToDelete(null); setAccountPassword(""); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction type="submit" disabled={isDeleting || !accountPassword}>
                {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                Confirm Deletion
             </AlertDialogAction>

@@ -1,6 +1,6 @@
 
-import { db } from "@/lib/firebaseClient";
-import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db, auth } from "@/lib/firebaseClient";
+import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, reauthenticateWithCredential, EmailAuthProvider } from "firebase/firestore";
 import type { ElectionRoom, Voter } from '@/lib/types';
 
 export async function getElectionRooms(): Promise<ElectionRoom[]> {
@@ -65,7 +65,6 @@ export async function getElectionRooms(): Promise<ElectionRoom[]> {
       description: data.description || "No description provided.",
       isAccessRestricted: data.isAccessRestricted === true, // Ensure boolean
       accessCode: data.accessCode || undefined,
-      deletionPassword: data.deletionPassword,
       positions: positions,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -150,7 +149,6 @@ export async function getElectionRoomById(roomId: string, options: { withVoteCou
     description: data.description || "No description.",
     isAccessRestricted: data.isAccessRestricted === true, // Ensure boolean
     accessCode: data.accessCode || undefined,
-    deletionPassword: data.deletionPassword,
     positions: positions,
     createdAt: createdAt,
     updatedAt: updatedAt,
@@ -186,19 +184,17 @@ export async function getVotersForRoom(roomId: string): Promise<Voter[]> {
 }
 
 
-export async function deleteElectionRoom(roomId: string, passwordAttempt: string): Promise<{ success: boolean; message: string }> {
+export async function deleteElectionRoom(roomId: string, adminPassword: string): Promise<{ success: boolean; message: string }> {
     const roomRef = doc(db, "electionRooms", roomId);
+    const user = auth.currentUser;
+
+    if (!user || !user.email) {
+        return { success: false, message: "No authenticated user found. Please log in again." };
+    }
     
     try {
-        const roomSnap = await getDoc(roomRef);
-        if (!roomSnap.exists()) {
-            return { success: false, message: "Room not found. It may have already been deleted." };
-        }
-        
-        const roomData = roomSnap.data();
-        if (roomData.deletionPassword !== passwordAttempt) {
-            return { success: false, message: "Incorrect deletion password." };
-        }
+        const credential = EmailAuthProvider.credential(user.email, adminPassword);
+        await reauthenticateWithCredential(user, credential);
         
         await deleteDoc(roomRef);
         
@@ -206,6 +202,12 @@ export async function deleteElectionRoom(roomId: string, passwordAttempt: string
 
     } catch (error: any) {
         console.error("Error deleting room:", error);
+        if (error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            return { success: false, message: "Incorrect password. Deletion failed." };
+        }
+        if (error.code === 'auth/requires-recent-login') {
+            return { success: false, message: "This action is sensitive and requires a recent login. Please log out and log back in." };
+        }
         if (error.code === 'permission-denied') {
             return { success: false, message: "You do not have permission to delete this room." };
         }
