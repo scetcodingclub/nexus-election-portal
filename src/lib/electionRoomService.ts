@@ -257,6 +257,17 @@ export async function recordParticipantEntry(
     voterEmail: string,
     ownPositionTitle: string
 ): Promise<{ success: boolean; message: string }> {
+    const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
+    const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
+    
+    const isRestrictedRole = clubAuthorities.includes(ownPositionTitle) || clubOperationTeam.includes(ownPositionTitle);
+
+    // If the role is not restricted, bypass the check and allow entry.
+    if (!isRestrictedRole) {
+        return { success: true, message: "Entry recorded for unrestricted role." };
+    }
+    
+    // For restricted roles, enforce the single-submission rule.
     const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
 
     try {
@@ -292,9 +303,20 @@ export async function submitBallot(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
-    const voterSnap = await getDoc(voterRef);
-    if (voterSnap.exists() && voterSnap.data().status === 'completed') {
-      return { success: false, message: "You have already voted in this election." };
+    
+    // Re-check for restricted roles before finalizing submission
+    const roomSnapForRole = await getDoc(doc(db, "electionRooms", roomId));
+    const voterDocForRole = await getDoc(voterRef);
+    const ownPositionTitle = voterDocForRole.exists() ? voterDocForRole.data().ownPositionTitle : '';
+    const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
+    const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
+    const isRestrictedRole = clubAuthorities.includes(ownPositionTitle) || clubOperationTeam.includes(ownPositionTitle);
+
+    if (isRestrictedRole) {
+        const voterSnap = await getDoc(voterRef);
+        if (voterSnap.exists() && voterSnap.data().status === 'completed') {
+          return { success: false, message: "You have already voted in this election." };
+        }
     }
 
     const roomRef = doc(db, "electionRooms", roomId);
@@ -317,12 +339,14 @@ export async function submitBallot(
       }
     }
     await Promise.all(votesPromises);
-
-    await setDoc(voterRef, {
-      status: 'completed',
-      lastActivity: serverTimestamp(),
-      votedAt: serverTimestamp(),
-    }, { merge: true });
+    
+    if (isRestrictedRole) {
+        await setDoc(voterRef, {
+          status: 'completed',
+          lastActivity: serverTimestamp(),
+          votedAt: serverTimestamp(),
+        }, { merge: true });
+    }
 
     return { success: true, message: "Your ballot has been successfully submitted." };
   } catch (error: any) {
@@ -338,10 +362,20 @@ export async function submitReview(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
-    const voterSnap = await getDoc(voterRef);
+    
+     // Re-check for restricted roles before finalizing submission
+    const roomSnapForRole = await getDoc(doc(db, "electionRooms", roomId));
+    const voterDocForRole = await getDoc(voterRef);
+    const ownPositionTitle = voterDocForRole.exists() ? voterDocForRole.data().ownPositionTitle : '';
+    const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
+    const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
+    const isRestrictedRole = clubAuthorities.includes(ownPositionTitle) || clubOperationTeam.includes(ownPositionTitle);
 
-    if (voterSnap.exists() && voterSnap.data().status === 'completed') {
-      return { success: false, message: "You have already submitted a review for this room." };
+    if (isRestrictedRole) {
+        const voterSnap = await getDoc(voterRef);
+        if (voterSnap.exists() && voterSnap.data().status === 'completed') {
+            return { success: false, message: "You have already submitted a review for this room." };
+        }
     }
 
     const roomRef = doc(db, "electionRooms", roomId);
@@ -376,11 +410,13 @@ export async function submitReview(
     }
     await Promise.all(reviewPromises);
     
-    await setDoc(voterRef, {
-      status: 'completed',
-      lastActivity: serverTimestamp(),
-      votedAt: serverTimestamp(),
-    }, { merge: true });
+    if (isRestrictedRole) {
+        await setDoc(voterRef, {
+          status: 'completed',
+          lastActivity: serverTimestamp(),
+          votedAt: serverTimestamp(),
+        }, { merge: true });
+    }
     
     return { success: true, message: "Your review has been successfully submitted." };
   } catch (error: any) {

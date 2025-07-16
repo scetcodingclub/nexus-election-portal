@@ -202,7 +202,6 @@ const ReviewPositionCard = ({
           onChange={(e) => onSelectionChange({ feedback: e.target.value })}
           rows={5}
         />
-         <p className="text-xs text-muted-foreground mt-1 text-right">{selection.feedback.length} characters</p>
       </div>
     </CardContent>
   </Card>
@@ -213,14 +212,14 @@ const GuidelinesScreen = ({
   onStart,
 }: {
   room: ElectionRoom,
-  onStart: (email: string, ownPositionId: string, ownPositionTitle: string) => void
+  onStart: (email: string, ownPositionTitle: string) => void
 }) => {
     const [email, setEmail] = useState("");
-    const [ownPositionId, setOwnPositionId] = useState("");
+    const [ownPositionTitle, setOwnPositionTitle] = useState("");
     const [isEmailValid, setIsEmailValid] = useState(false);
     const [rulesAcknowledged, setRulesAcknowledged] = useState(false);
     
-    const canProceed = isEmailValid && rulesAcknowledged && ownPositionId;
+    const canProceed = isEmailValid && rulesAcknowledged && ownPositionTitle;
 
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
@@ -229,35 +228,19 @@ const GuidelinesScreen = ({
         setIsEmailValid(emailRegex.test(newEmail));
     }
     
-    const getPositionTitle = (id: string) => {
-      if (id === 'coordinator') return 'Coordinator';
-      // Find from election positions
-      const electionPosition = room.positions.find(p => p.id === id);
-      if (electionPosition) return electionPosition.title;
-      // If not in election positions, it must be one of the general roles, so return the id itself.
-      return id;
-    }
-
     const startButtonText = room.roomType === 'review' ? 'Start Review' : 'Start Voting';
+    
+    // Define the roles
+    const facultyRoles = ["Coordinator"];
+    const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
+    const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
+    const generalClubRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
 
-    const generalRoles = [
-      "Content Writting",
-      "PR - Head",
-      "Content Creation Team Member - 1",
-      "Content Creation Team Member - 2",
-      "Content Creation Team Member - 3",
-      "Documentation Team Member - 1",
-      "Pr - Team Member - 1",
-      "Documentation Team Member - 2",
-      "Management Team Member - 1",
-      "Documentation Team Member - 3",
-      "Management Team Member - 2",
-      "Pr - Team Member 2",
-      "Member - 1",
-      "Management Team Member - 3",
-      "Technical Team Member - 2",
-      "Member - 2"
-    ];
+    // Combine roles that are not in the current election for the dropdown
+    const electionPositionTitles = new Set(room.positions.map(p => p.title));
+    
+    const authoritiesToShow = clubAuthorities.filter(r => !electionPositionTitles.has(r));
+    const operationTeamToShow = clubOperationTeam.filter(r => !electionPositionTitles.has(r));
 
     return (
         <Card className="max-w-2xl mx-auto shadow-lg">
@@ -275,8 +258,8 @@ const GuidelinesScreen = ({
                                <h4 className="font-semibold mb-2">General Rules (Applicable to All Rooms)</h4>
                                <ul className="list-disc pl-5 space-y-1">
                                   <li>Only authorized members are allowed. Your access is granted based on your email.</li>
-                                  <li>You can enter the room only once. Refreshing or exiting after starting may lock your session.</li>
-                                  <li>To avoid self-voting, you must select your own position if it's on the ballot. That position will be excluded. Coordinators and general members may see all positions.</li>
+                                  <li>For 'Club Authorities' and 'Operation Team' roles, you can enter the room only once. Refreshing or exiting after starting may lock your session.</li>
+                                  <li>To avoid self-voting, if your own position is on the ballot, it will be excluded from your view.</li>
                                   <li>Maintain honesty and neutrality. Sharing or discussing your selections is prohibited.</li>
                                   <li>Once submitted, no changes can be made. Ensure you have a stable internet connection.</li>
                                </ul>
@@ -307,7 +290,7 @@ const GuidelinesScreen = ({
                            <div>
                                <h4 className="font-semibold mb-2 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-green-600" />Your Privacy is Protected</h4>
                                <p>
-                                   To ensure fairness, we require your email to prevent multiple submissions. 
+                                   To ensure fairness for restricted roles, we require your email to prevent multiple submissions. 
                                    However, your {room.roomType === 'review' ? 'review' : 'vote'} itself is **completely anonymous**. Your email will not be linked to your specific choices.
                                </p>
                            </div>
@@ -332,33 +315,36 @@ const GuidelinesScreen = ({
 
                 <div className="space-y-2">
                     <Label htmlFor="voter-position">Select Your Position/Role</Label>
-                    <Select value={ownPositionId} onValueChange={setOwnPositionId}>
+                    <Select value={ownPositionTitle} onValueChange={setOwnPositionTitle}>
                         <SelectTrigger id="voter-position" className="w-full">
                             <SelectValue placeholder="Select your current position or role..." />
                         </SelectTrigger>
                         <SelectContent>
-                           <SelectItem value="coordinator">Coordinator</SelectItem>
-                            <SelectSeparator />
-                            <SelectGroup>
-                                <SelectLabel>Positions in this Election</SelectLabel>
-                                {room.positions.map(pos => (
-                                    <SelectItem key={pos.id} value={pos.id}>
-                                        {pos.title}
-                                    </SelectItem>
-                                ))}
-                            </SelectGroup>
-                            <SelectSeparator />
-                            <SelectGroup>
-                                <SelectLabel>General Club Roles</SelectLabel>
-                                {generalRoles.map(role => (
-                                    <SelectItem key={role} value={role}>
-                                        {role}
-                                    </SelectItem>
-                                ))}
-                            </SelectGroup>
+                           <SelectGroup>
+                              <SelectLabel>Faculty</SelectLabel>
+                              {facultyRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                           </SelectGroup>
+                           <SelectSeparator />
+                           {authoritiesToShow.length > 0 && (
+                               <SelectGroup>
+                                   <SelectLabel>Club Authorities</SelectLabel>
+                                   {authoritiesToShow.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                               </SelectGroup>
+                           )}
+                           {operationTeamToShow.length > 0 && (
+                               <SelectGroup>
+                                   <SelectLabel>Club Operation Team</SelectLabel>
+                                   {operationTeamToShow.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                               </SelectGroup>
+                           )}
+                           <SelectSeparator />
+                           <SelectGroup>
+                              <SelectLabel>General Club Roles</SelectLabel>
+                              {generalClubRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                           </SelectGroup>
                         </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">This is to prevent you from voting for your own position. Coordinators and general members are exempt from this restriction.</p>
+                    <p className="text-xs text-muted-foreground">This is to prevent you from voting for your own position.</p>
                 </div>
 
 
@@ -369,7 +355,7 @@ const GuidelinesScreen = ({
                     </label>
                 </div>
                 
-                <Button size="lg" className="w-full" disabled={!canProceed} onClick={() => onStart(email, ownPositionId, getPositionTitle(ownPositionId))}>
+                <Button size="lg" className="w-full" disabled={!canProceed} onClick={() => onStart(email, ownPositionTitle)}>
                     <ArrowRight className="mr-2 h-5 w-5" />
                     {startButtonText}
                 </Button>
@@ -420,23 +406,18 @@ export default function VotingPage() {
     }
   }, [roomId]);
 
-  const handleStart = async (email: string, ownPositionId: string, ownPositionTitle: string) => {
+  const handleStart = async (email: string, ownPositionTitle: string) => {
     if (!room) return;
     setVoterEmail(email);
     const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
+    
     if (result.success) {
         let positionsToShow: Position[];
-        const coordinatorSelected = ownPositionId === 'coordinator';
+        const coordinatorSelected = ownPositionTitle === 'Coordinator';
         setIsCoordinator(coordinatorSelected);
-
-        const isGeneralRole = !room.positions.some(p => p.id === ownPositionId) && !coordinatorSelected;
-
-        if (coordinatorSelected || isGeneralRole) {
-            positionsToShow = room.positions;
-        } else {
-            positionsToShow = room.positions.filter(p => p.id !== ownPositionId);
-        }
-
+        
+        // Exclude the position the user holds from the ballot
+        positionsToShow = room.positions.filter(p => p.title !== ownPositionTitle);
         setFilteredPositions(positionsToShow);
 
         // Initialize selections for the filtered positions
@@ -514,7 +495,7 @@ export default function VotingPage() {
 
   const handleBack = () => {
     if (currentPositionIndex <= 0) return;
-    setCurrentPositionIndex(currentPositionIndex - 1);
+    setCurrentPositionIndex(currentPositionIndex + 1);
   };
   
   const handleSubmit = async () => {
@@ -760,5 +741,3 @@ export default function VotingPage() {
     </div>
   );
 }
-
-    
