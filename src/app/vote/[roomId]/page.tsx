@@ -193,7 +193,7 @@ const ReviewPositionCard = ({
         </div>
       </div>
       <div>
-        <Label htmlFor={`feedback-${position.id}`}>Feedback (Optional for Coordinators, 10+ characters required for others)</Label>
+        <Label htmlFor={`feedback-${position.id}`}>Feedback</Label>
         <Textarea 
           id={`feedback-${position.id}`}
           placeholder="Enter your detailed feedback here..." 
@@ -201,8 +201,6 @@ const ReviewPositionCard = ({
           value={selection.feedback}
           onChange={(e) => onSelectionChange({ feedback: e.target.value })}
           rows={5}
-          minLength={10}
-          required
         />
          <p className="text-xs text-muted-foreground mt-1 text-right">{selection.feedback.length} characters</p>
       </div>
@@ -227,17 +225,39 @@ const GuidelinesScreen = ({
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newEmail = e.target.value;
         setEmail(newEmail);
-        // Stricter regex for better validation
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$/;
         setIsEmailValid(emailRegex.test(newEmail));
     }
     
     const getPositionTitle = (id: string) => {
       if (id === 'coordinator') return 'Coordinator';
-      return room.positions.find(p => p.id === id)?.title || '';
+      // Find from election positions
+      const electionPosition = room.positions.find(p => p.id === id);
+      if (electionPosition) return electionPosition.title;
+      // If not in election positions, it must be one of the general roles, so return the id itself.
+      return id;
     }
 
     const startButtonText = room.roomType === 'review' ? 'Start Review' : 'Start Voting';
+
+    const generalRoles = [
+      "Content Writting",
+      "PR - Head",
+      "Content Creation Team Member - 1",
+      "Content Creation Team Member - 2",
+      "Content Creation Team Member - 3",
+      "Documentation Team Member - 1",
+      "Pr - Team Member - 1",
+      "Documentation Team Member - 2",
+      "Management Team Member - 1",
+      "Documentation Team Member - 3",
+      "Management Team Member - 2",
+      "Pr - Team Member 2",
+      "Member - 1",
+      "Management Team Member - 3",
+      "Technical Team Member - 2",
+      "Member - 2"
+    ];
 
     return (
         <Card className="max-w-2xl mx-auto shadow-lg">
@@ -256,7 +276,7 @@ const GuidelinesScreen = ({
                                <ul className="list-disc pl-5 space-y-1">
                                   <li>Only authorized members are allowed. Your access is granted based on your email.</li>
                                   <li>You can enter the room only once. Refreshing or exiting after starting may lock your session.</li>
-                                  <li>To avoid self-voting, you must select your own position. That position will be excluded from your ballot. Coordinators may see all positions.</li>
+                                  <li>To avoid self-voting, you must select your own position if it's on the ballot. That position will be excluded. Coordinators and general members may see all positions.</li>
                                   <li>Maintain honesty and neutrality. Sharing or discussing your selections is prohibited.</li>
                                   <li>Once submitted, no changes can be made. Ensure you have a stable internet connection.</li>
                                </ul>
@@ -311,23 +331,30 @@ const GuidelinesScreen = ({
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="voter-position">Select Your Position</Label>
+                    <Label htmlFor="voter-position">Select Your Position/Role</Label>
                     <Select value={ownPositionId} onValueChange={setOwnPositionId}>
                         <SelectTrigger id="voter-position" className="w-full">
-                            <SelectValue placeholder="Select your current position..." />
+                            <SelectValue placeholder="Select your current position or role..." />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="coordinator">
-                                Coordinator (View All Positions)
-                            </SelectItem>
+                           <SelectItem value="coordinator">Coordinator</SelectItem>
+                            <SelectSeparator />
+                            <SelectLabel>Positions in this Election</SelectLabel>
                             {room.positions.map(pos => (
                                 <SelectItem key={pos.id} value={pos.id}>
                                     {pos.title}
                                 </SelectItem>
                             ))}
+                            <SelectSeparator />
+                            <SelectLabel>General Club Roles</SelectLabel>
+                            {generalRoles.map(role => (
+                                <SelectItem key={role} value={role}>
+                                    {role}
+                                </SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">This is to prevent you from voting for your own position. Coordinators are exempt.</p>
+                    <p className="text-xs text-muted-foreground">This is to prevent you from voting for your own position. Coordinators and general members are exempt from this restriction.</p>
                 </div>
 
 
@@ -398,11 +425,11 @@ export default function VotingPage() {
         const coordinatorSelected = ownPositionId === 'coordinator';
         setIsCoordinator(coordinatorSelected);
 
-        if (coordinatorSelected) {
-            // Coordinator sees all positions
+        const isGeneralRole = !room.positions.some(p => p.id === ownPositionId) && !coordinatorSelected;
+
+        if (coordinatorSelected || isGeneralRole) {
             positionsToShow = room.positions;
         } else {
-            // Filter out the user's own position
             positionsToShow = room.positions.filter(p => p.id !== ownPositionId);
         }
 
@@ -477,17 +504,13 @@ export default function VotingPage() {
         toast({ variant: "destructive", title: "Incomplete", description: "Please provide a star rating before proceeding." });
         return;
       }
-      if (!currentReview.feedback || currentReview.feedback.trim().length < 10) {
-        toast({ variant: "destructive", title: "Incomplete", description: "Please provide written feedback of at least 10 characters." });
-        return;
-      }
     }
     setCurrentPositionIndex(currentPositionIndex + 1);
   };
 
   const handleBack = () => {
     if (currentPositionIndex <= 0) return;
-    setCurrentPositionIndex(currentPositionIndex - 1);
+    setCurrentPositionIndex(currentPositionIndex + 1);
   };
   
   const handleSubmit = async () => {
@@ -504,17 +527,13 @@ export default function VotingPage() {
         toast({ variant: "destructive", title: "Incomplete", description: "Please provide a star rating before submitting." });
         return;
       }
-      if (!currentReview.feedback || currentReview.feedback.trim().length < 10) {
-        toast({ variant: "destructive", title: "Incomplete", description: "Please provide written feedback of at least 10 characters." });
-        return;
-      }
     }
 
     setIsSubmitting(true);
     let result;
     if (room.roomType === 'review') {
       const validSelections = Object.entries(selections).reduce((acc, [posId, sel]) => {
-          if (sel.rating > 0 && sel.feedback.trim().length > 0) {
+          if (sel.rating > 0) { // Only submit if there's a rating
               acc[posId] = sel;
           }
           return acc;
@@ -737,4 +756,3 @@ export default function VotingPage() {
     </div>
   );
 }
-
