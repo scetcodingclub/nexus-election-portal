@@ -122,10 +122,26 @@ export async function getElectionRoomById(roomId: string, options: { withVoteCou
         const posReviews = reviewsByPosition.get(position.id) || [];
         const totalRating = posReviews.reduce((sum, r) => sum + r.rating, 0);
         const averageRating = posReviews.length > 0 ? totalRating / posReviews.length : 0;
+        
+        const ratingDistribution = [
+          { name: '1 Star', count: 0 },
+          { name: '2 Stars', count: 0 },
+          { name: '3 Stars', count: 0 },
+          { name: '4 Stars', count: 0 },
+          { name: '5 Stars', count: 0 },
+        ];
+        posReviews.forEach(r => {
+            const starIndex = Math.floor(r.rating) - 1;
+            if(starIndex >= 0 && starIndex < 5) {
+                ratingDistribution[starIndex].count++;
+            }
+        });
+
         return {
           ...position,
           averageRating: parseFloat(averageRating.toFixed(2)),
           reviews: posReviews.sort((a,b) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime()),
+          ratingDistribution: ratingDistribution
         }
       });
 
@@ -344,6 +360,9 @@ export async function submitReview(
       const candidateId = position?.candidates[0]?.id;
 
       if (candidateId) {
+        // Skip submissions if rating is 0 (which means it was skipped by coordinator)
+        if (reviewData.rating === 0) continue;
+
         const reviewRef = collection(db, "electionRooms", roomId, "reviews");
         reviewPromises.push(addDoc(reviewRef, {
           positionId,

@@ -20,6 +20,7 @@ export interface Position {
   // For review results
   averageRating?: number;
   reviews?: Review[];
+  ratingDistribution?: { name: string, count: number }[];
 }
 
 export interface ElectionRoom {

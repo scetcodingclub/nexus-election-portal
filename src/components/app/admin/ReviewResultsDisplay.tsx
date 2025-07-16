@@ -49,9 +49,9 @@ export default function ReviewResultsDisplay({ room }: ReviewResultsDisplayProps
                                         {position.reviews?.map((review, index) => (
                                             <div key={index} className="border-b pb-4 last:border-b-0">
                                                 <p className="text-sm bg-muted/50 p-3 rounded-md">{review.feedback}</p>
-                                                <p className="text-xs text-muted-foreground text-right mt-1">
+                                                <div className="text-xs text-muted-foreground text-right mt-1">
                                                     Submitted {formatDistanceToNow(new Date(review.reviewedAt), { addSuffix: true })}
-                                                </p>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>

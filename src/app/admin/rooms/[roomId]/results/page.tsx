@@ -9,7 +9,7 @@ import { getElectionRoomById } from "@/lib/electionRoomService";
 import type { ElectionRoom, Candidate } from "@/lib/types";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, BarChartHorizontalBig, AlertTriangle, Trophy, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, BarChartHorizontalBig, AlertTriangle, Trophy, Loader2, MessageSquare, PieChart } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import ResultsTable from "@/components/app/admin/ResultsTable";
@@ -22,6 +22,7 @@ import { jsPDF } from "jspdf";
 import autoTable, { type UserOptions } from 'jspdf-autotable';
 import ResultsPdfLayout from "@/components/app/admin/ResultsPdfLayout";
 import ReviewResultsDisplay from "@/components/app/admin/ReviewResultsDisplay";
+import ReviewCharts from "@/components/app/admin/ReviewCharts";
 
 
 interface LeaderboardCandidate extends Candidate {
@@ -186,7 +187,7 @@ export default function ElectionResultsPage() {
                     [{ content: `Average Rating: ${position.averageRating?.toFixed(2) || 'N/A'} ★`, styles: { fontSize: 12 } }],
                 ],
                 theme: 'plain',
-                styles: { font: 'times' },
+                styles: { font: 'times', cellPadding: { top: 0, right: 0, bottom: 0, left: 0 } },
                 startY: startY,
             });
 
@@ -305,7 +306,18 @@ export default function ElectionResultsPage() {
       )}
 
       {room.roomType === 'review' ? (
-        <ReviewResultsDisplay room={room} />
+         <Tabs defaultValue="charts" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 md:w-auto md:inline-flex mb-4">
+              <TabsTrigger value="charts" className="text-sm md:text-base"><PieChart className="mr-2 h-4 w-4"/>Charts View</TabsTrigger>
+              <TabsTrigger value="feedback" className="text-sm md:text-base"><MessageSquare className="mr-2 h-4 w-4"/>Feedback View</TabsTrigger>
+            </TabsList>
+            <TabsContent value="charts">
+                <ReviewCharts positions={room.positions} />
+            </TabsContent>
+            <TabsContent value="feedback">
+                <ReviewResultsDisplay room={room} />
+            </TabsContent>
+        </Tabs>
       ) : (
         <Tabs defaultValue="charts" className="w-full">
           <TabsList className="grid w-full grid-cols-2 md:w-auto md:inline-flex mb-4">
