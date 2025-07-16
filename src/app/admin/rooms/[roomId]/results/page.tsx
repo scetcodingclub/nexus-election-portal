@@ -189,12 +189,15 @@ export default function ElectionResultsPage() {
             });
 
             autoTable(doc, {
-                head: [['Feedback Received']],
-                body: (position.reviews || []).map(review => [review.feedback]),
+                head: [['S.No', 'Feedback Received']],
+                body: (position.reviews || []).map((review, reviewIndex) => [reviewIndex + 1, review.feedback]),
                 startY: (doc as any).lastAutoTable.finalY + 10,
                 theme: 'grid',
                 headStyles: { fillColor: [0, 121, 107], font: 'times' }, // #00796B
                 bodyStyles: { font: 'times' },
+                columnStyles: {
+                    0: { cellWidth: 15, halign: 'center' }, // S.No column
+                },
             });
         });
     } else {
