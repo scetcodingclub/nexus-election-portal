@@ -2,7 +2,7 @@
 import { db, auth } from "@/lib/firebaseClient";
 import { doc, getDoc, collection, query, where, getDocs, runTransaction, Timestamp, DocumentData, orderBy, writeBatch, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
-import type { ElectionRoom, Voter } from '@/lib/types';
+import type { ElectionRoom, Voter, Review, Position } from '@/lib/types';
 
 export async function getElectionRooms(): Promise<ElectionRoom[]> {
   const electionRoomsCol = collection(db, "electionRooms");
@@ -78,37 +78,75 @@ export async function getElectionRooms(): Promise<ElectionRoom[]> {
 export async function getElectionRoomById(roomId: string, options: { withVoteCounts?: boolean } = {}): Promise<ElectionRoom | null> {
   const { withVoteCounts = false } = options;
   const roomRef = doc(db, "electionRooms", roomId);
-
-  let votesSnap = null;
-  if(withVoteCounts) {
-    if( (await getDoc(roomRef)).data()?.roomType === 'review' ) {
-      votesSnap = await getDocs(collection(db, "electionRooms", roomId, "reviews"));
-    } else {
-       votesSnap = await getDocs(collection(db, "electionRooms", roomId, "votes"));
-    }
-  }
- 
   const docSnap = await getDoc(roomRef);
 
   if (!docSnap.exists()) {
     return null;
   }
   
-  const voteCounts = new Map<string, number>();
-  if (votesSnap) {
-     if(docSnap.data()?.roomType === 'review') {
-        // Logic for reviews if needed in the future, e.g., counting reviews per candidate
-     } else {
-        votesSnap.forEach(voteDoc => {
-            const voteData = voteDoc.data();
-            const candidateId = voteData.candidateId;
-            voteCounts.set(candidateId, (voteCounts.get(candidateId) || 0) + 1);
-        });
-     }
-  }
-
   const data = docSnap.data();
-  if (!data) return null; 
+  if (!data) return null;
+
+  let finalPositions: Position[] = (data.positions || []).map((p: any) => ({
+    id: p?.id || `pos-${Math.random().toString(36).substr(2, 9)}`,
+    title: p?.title || "Untitled Position",
+    candidates: (p?.candidates || []).map((c: any) => ({
+      id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
+      name: c?.name || "Unnamed Candidate",
+      imageUrl: c?.imageUrl || '',
+      voteCount: 0,
+    })),
+    averageRating: 0,
+    reviews: [],
+  }));
+
+  if (withVoteCounts) {
+    if (data.roomType === 'review') {
+      const reviewsSnap = await getDocs(collection(db, "electionRooms", roomId, "reviews"));
+      const reviewsByPosition = new Map<string, Review[]>();
+
+      reviewsSnap.forEach(reviewDoc => {
+        const reviewData = reviewDoc.data();
+        const positionId = reviewData.positionId;
+        const reviews = reviewsByPosition.get(positionId) || [];
+        reviews.push({
+          rating: reviewData.rating,
+          feedback: reviewData.feedback,
+          reviewerEmail: reviewData.reviewerEmail,
+          reviewedAt: (reviewData.reviewedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+        });
+        reviewsByPosition.set(positionId, reviews);
+      });
+      
+      finalPositions = finalPositions.map(position => {
+        const posReviews = reviewsByPosition.get(position.id) || [];
+        const totalRating = posReviews.reduce((sum, r) => sum + r.rating, 0);
+        const averageRating = posReviews.length > 0 ? totalRating / posReviews.length : 0;
+        return {
+          ...position,
+          averageRating: parseFloat(averageRating.toFixed(2)),
+          reviews: posReviews.sort((a,b) => new Date(b.reviewedAt).getTime() - new Date(a.reviewedAt).getTime()),
+        }
+      });
+
+    } else { // 'voting' room type
+      const votesSnap = await getDocs(collection(db, "electionRooms", roomId, "votes"));
+      const voteCounts = new Map<string, number>();
+      votesSnap.forEach(voteDoc => {
+        const voteData = voteDoc.data();
+        const candidateId = voteData.candidateId;
+        voteCounts.set(candidateId, (voteCounts.get(candidateId) || 0) + 1);
+      });
+      
+      finalPositions = finalPositions.map(position => ({
+        ...position,
+        candidates: position.candidates.map(candidate => ({
+          ...candidate,
+          voteCount: voteCounts.get(candidate.id) || 0,
+        })),
+      }));
+    }
+  }
 
   const createdAtRaw = data.createdAt;
   const updatedAtRaw = data.updatedAt;
@@ -125,38 +163,20 @@ export async function getElectionRoomById(roomId: string, options: { withVoteCou
     ? updatedAtRaw
     : undefined;
 
-  const positionsRaw = data.positions;
-  const positions = Array.isArray(positionsRaw)
-    ? positionsRaw.map((p: any) => {
-        const candidatesRaw = p?.candidates;
-        return {
-          id: p?.id || `pos-${Math.random().toString(36).substr(2, 9)}`,
-          title: p?.title || "Untitled Position",
-          candidates: Array.isArray(candidatesRaw)
-            ? candidatesRaw.map((c: any) => ({
-                id: c?.id || `cand-${Math.random().toString(36).substr(2, 9)}`,
-                name: c?.name || "Unnamed Candidate",
-                imageUrl: c?.imageUrl || '',
-                voteCount: voteCounts.get(c.id) || 0,
-              }))
-            : [],
-        };
-      })
-    : [];
-
   return {
     id: docSnap.id,
-    title: data.title || "Untitled Voting Room",
+    title: data.title || "Untitled Room",
     description: data.description || "No description.",
-    isAccessRestricted: data.isAccessRestricted === true, // Ensure boolean
+    isAccessRestricted: data.isAccessRestricted === true,
     accessCode: data.accessCode || undefined,
-    positions: positions,
+    positions: finalPositions,
     createdAt: createdAt,
     updatedAt: updatedAt,
     status: (data.status as ElectionRoom['status']) || 'pending',
     roomType: data.roomType || 'voting',
   };
 }
+
 
 export async function getVotersForRoom(roomId: string): Promise<Voter[]> {
   const votersColRef = collection(db, "electionRooms", roomId, "voters");

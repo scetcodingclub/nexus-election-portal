@@ -6,10 +6,20 @@ export interface Candidate {
   voteCount?: number; // Optional: for results
 }
 
+export interface Review {
+  rating: number;
+  feedback: string;
+  reviewerEmail: string;
+  reviewedAt: string;
+}
+
 export interface Position {
   id: string;
   title: string;
   candidates: Candidate[];
+  // For review results
+  averageRating?: number;
+  reviews?: Review[];
 }
 
 export interface ElectionRoom {

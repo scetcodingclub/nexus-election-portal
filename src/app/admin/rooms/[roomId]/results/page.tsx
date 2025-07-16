@@ -21,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { jsPDF } from "jspdf";
 import autoTable, { type UserOptions } from 'jspdf-autotable';
 import ResultsPdfLayout from "@/components/app/admin/ResultsPdfLayout";
+import ReviewResultsDisplay from "@/components/app/admin/ReviewResultsDisplay";
 
 
 interface LeaderboardCandidate extends Candidate {
@@ -173,44 +174,59 @@ export default function ElectionResultsPage() {
       }
     });
     
-    const tableOptions: UserOptions = {
-      html: '#pdf-results-table',
-      startY: (doc as any).lastAutoTable.finalY + 10,
-      theme: 'grid',
-      headStyles: { fillColor: [0, 121, 107] }, // #00796B
-      didParseCell: (data) => {
-        // Remove images from PDF, as they complicate things
-        const rawCell = data.cell.raw as HTMLElement;
-        if (rawCell && rawCell.querySelector('img')) {
-          data.cell.text = '';
-        }
-         // Custom styling for winner rows
-        if (data.row.raw && (data.row.raw as HTMLElement).classList?.contains('winner-row')) {
-            data.cell.styles.fillColor = 'transparent'; // Remove gray background
-            data.cell.styles.textColor = 'black'; // Ensure text is visible
-        }
-      }
-    };
+    if (room.roomType === 'review') {
+        room.positions.forEach((position, index) => {
+            if (index > 0) doc.addPage();
+            autoTable(doc, {
+                body: [
+                    [{ content: `Review for: ${position.title} - ${position.candidates[0]?.name || ''}`, styles: { fontSize: 16, fontStyle: 'bold' }}],
+                    [{ content: `Average Rating: ${position.averageRating?.toFixed(2) || 'N/A'} / 5 ★`, styles: { fontSize: 12 } }],
+                ],
+                theme: 'plain'
+            });
 
-    // Add Detailed Results table
-    autoTable(doc, tableOptions);
-    
-    // Start Leaderboard on a new page
-    doc.addPage();
-    
-    // Add leaderboard title
-    autoTable(doc, {
-       body: [[{ content: 'Overall Leaderboard', styles: { fontSize: 18, fontStyle: 'bold' } }]],
-       theme: 'plain'
-    });
+            autoTable(doc, {
+                head: [['Feedback Received']],
+                body: (position.reviews || []).map(review => [review.feedback]),
+                startY: (doc as any).lastAutoTable.finalY + 2,
+                theme: 'grid',
+                headStyles: { fillColor: [0, 121, 107] }, // #00796B
+            });
+        });
+    } else {
+        // Existing Voting results export
+        const tableOptions: UserOptions = {
+          html: '#pdf-results-table',
+          startY: (doc as any).lastAutoTable.finalY + 10,
+          theme: 'grid',
+          headStyles: { fillColor: [0, 121, 107] }, // #00796B
+          didParseCell: (data) => {
+            const rawCell = data.cell.raw as HTMLElement;
+            if (rawCell && rawCell.querySelector('img')) {
+              data.cell.text = '';
+            }
+            if (data.row.raw && (data.row.raw as HTMLElement).classList?.contains('winner-row')) {
+                data.cell.styles.fillColor = 'transparent'; 
+                data.cell.styles.textColor = 'black'; 
+            }
+          }
+        };
+        autoTable(doc, tableOptions);
+        
+        doc.addPage();
+        
+        autoTable(doc, {
+           body: [[{ content: 'Overall Leaderboard', styles: { fontSize: 18, fontStyle: 'bold' } }]],
+           theme: 'plain'
+        });
 
-    // Add Overall Leaderboard table
-    autoTable(doc, {
-      html: '#pdf-leaderboard-table',
-      startY: (doc as any).lastAutoTable.finalY + 2,
-      theme: 'grid',
-      headStyles: { fillColor: [0, 121, 107] }, // #00796B
-    });
+        autoTable(doc, {
+          html: '#pdf-leaderboard-table',
+          startY: (doc as any).lastAutoTable.finalY + 2,
+          theme: 'grid',
+          headStyles: { fillColor: [0, 121, 107] }, // #00796B
+        });
+    }
 
     doc.save(`${safeTitle}.pdf`);
     setIsExporting(false);
@@ -252,7 +268,7 @@ export default function ElectionResultsPage() {
         <div>
             <Button variant="outline" asChild className="mb-2 sm:mb-0 sm:mr-4">
             <Link href={`/admin/rooms/${room.id}/manage`}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Voting Room
+                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Manage Room
             </Link>
             </Button>
             <h1 className="text-3xl font-bold font-headline mt-2">Results: {room.title}</h1>
@@ -267,37 +283,41 @@ export default function ElectionResultsPage() {
       {room.status !== 'closed' && (
         <Card className="border-primary bg-primary/5">
             <CardHeader>
-                <CardTitle>Election In Progress or Pending</CardTitle>
+                <CardTitle>Room In Progress or Pending</CardTitle>
                 <CardDescription>
-                    This election is currently '{room.status}'. Results shown are based on current votes and may change.
-                    Final results will be available once the election is closed.
+                    This room is currently '{room.status}'. Results shown are based on current submissions and may change.
+                    Final results will be available once the room is closed.
                 </CardDescription>
             </CardHeader>
         </Card>
       )}
-      
-      <Tabs defaultValue="charts" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:w-auto md:inline-flex mb-4">
-          <TabsTrigger value="charts" className="text-sm md:text-base"><BarChartHorizontalBig className="mr-2 h-4 w-4"/>Charts View</TabsTrigger>
-          <TabsTrigger value="table" className="text-sm md:text-base"><BarChartHorizontalBig className="mr-2 h-4 w-4"/>Table View</TabsTrigger>
-        </TabsList>
-        <TabsContent value="charts" className="space-y-8">
-          <ResultsCharts positions={room.positions} />
-          <OverallLeaderboard room={room} />
-        </TabsContent>
-        <TabsContent value="table" className="space-y-8">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Detailed Results Table</CardTitle>
-                    <CardDescription>Comprehensive breakdown of votes for each candidate and position.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ResultsTable positions={room.positions} />
-                </CardContent>
-            </Card>
+
+      {room.roomType === 'review' ? (
+        <ReviewResultsDisplay room={room} />
+      ) : (
+        <Tabs defaultValue="charts" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 md:w-auto md:inline-flex mb-4">
+            <TabsTrigger value="charts" className="text-sm md:text-base"><BarChartHorizontalBig className="mr-2 h-4 w-4"/>Charts View</TabsTrigger>
+            <TabsTrigger value="table" className="text-sm md:text-base"><BarChartHorizontalBig className="mr-2 h-4 w-4"/>Table View</TabsTrigger>
+          </TabsList>
+          <TabsContent value="charts" className="space-y-8">
+            <ResultsCharts positions={room.positions} />
             <OverallLeaderboard room={room} />
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
+          <TabsContent value="table" className="space-y-8">
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Detailed Results Table</CardTitle>
+                      <CardDescription>Comprehensive breakdown of votes for each candidate and position.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      <ResultsTable positions={room.positions} />
+                  </CardContent>
+              </Card>
+              <OverallLeaderboard room={room} />
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
     <div className="hidden">
       <ResultsPdfLayout room={room} />

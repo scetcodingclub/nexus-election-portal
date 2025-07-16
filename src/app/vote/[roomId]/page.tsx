@@ -184,7 +184,7 @@ const ReviewPositionCard = ({
         </div>
       </div>
       <div>
-        <Label htmlFor={`feedback-${position.id}`}>Feedback (Required: 10-500 characters)</Label>
+        <Label htmlFor={`feedback-${position.id}`}>Feedback (Required: 10+ characters)</Label>
         <Textarea 
           id={`feedback-${position.id}`}
           placeholder="Enter your detailed feedback here..." 
@@ -193,10 +193,9 @@ const ReviewPositionCard = ({
           onChange={(e) => onSelectionChange({ feedback: e.target.value })}
           rows={5}
           minLength={10}
-          maxLength={500}
           required
         />
-         <p className="text-xs text-muted-foreground mt-1 text-right">{selection.feedback.length} / 500</p>
+         <p className="text-xs text-muted-foreground mt-1 text-right">{selection.feedback.length} characters</p>
       </div>
     </CardContent>
   </Card>
