@@ -24,7 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle, PenSquare, Vote, Star, Trash2, Loader2 } from "lucide-react";
+import { PlusCircle, Settings, BarChart3, Users, CalendarDays, LockKeyhole, CheckCircle, Clock, XCircle, AlertTriangle, PenSquare, Vote, Star, Trash2, Loader2, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { format } from 'date-fns';
@@ -103,6 +103,7 @@ export default function AdminDashboardPage() {
   const [roomToDelete, setRoomToDelete] = useState<ElectionRoom | null>(null);
   const [accountPassword, setAccountPassword] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
 
   useEffect(() => {
@@ -131,6 +132,8 @@ export default function AdminDashboardPage() {
   const openDeleteDialog = (room: ElectionRoom) => {
     setRoomToDelete(room);
     setIsDeleteDialogOpen(true);
+    setAccountPassword("");
+    setShowPassword(false);
   };
 
   const handleConfirmDelete = async (e: FormEvent) => {
@@ -279,14 +282,31 @@ export default function AdminDashboardPage() {
         <form onSubmit={handleConfirmDelete}>
           <div className="space-y-2 my-4">
               <Label htmlFor="account-password">Your Account Password</Label>
-              <Input
-                  id="account-password"
-                  type="password"
-                  value={accountPassword}
-                  onChange={(e) => setAccountPassword(e.target.value)}
-                  placeholder="Enter your password"
-                  autoFocus
-              />
+              <div className="relative">
+                <Input
+                    id="account-password"
+                    type={showPassword ? "text" : "password"}
+                    value={accountPassword}
+                    onChange={(e) => setAccountPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    autoFocus
+                    className="pr-10"
+                />
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </Button>
+              </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => { setRoomToDelete(null); setAccountPassword(""); }}>Cancel</AlertDialogCancel>
