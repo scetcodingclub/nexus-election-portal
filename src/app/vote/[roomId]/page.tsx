@@ -231,9 +231,6 @@ const GuidelinesScreen = ({
     
     const startButtonText = room.roomType === 'review' ? 'Start Review' : 'Start Voting';
 
-    // The roles that appear in the election should not be selectable from the dropdown
-    const electionPositionTitles = room.positions.map(p => p.title.toLowerCase());
-    
     return (
         <Card className="max-w-2xl mx-auto shadow-lg">
             <CardHeader className="text-center">
@@ -315,28 +312,24 @@ const GuidelinesScreen = ({
                            <SelectGroup>
                               <SelectLabel>Faculty</SelectLabel>
                               {facultyRoles
-                                .filter(role => !electionPositionTitles.includes(role.toLowerCase()))
                                 .map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                            </SelectGroup>
                            <SelectSeparator />
                            <SelectGroup>
                                <SelectLabel>Club Authorities</SelectLabel>
                                {clubAuthorities
-                                .filter(role => !electionPositionTitles.includes(role.toLowerCase()))
                                 .map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                            </SelectGroup>
                            <SelectSeparator />
                            <SelectGroup>
                                <SelectLabel>Club Operation Team</SelectLabel>
                                {clubOperationTeam
-                                .filter(role => !electionPositionTitles.includes(role.toLowerCase()))
                                 .map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                            </SelectGroup>
                            <SelectSeparator />
                            <SelectGroup>
                               <SelectLabel>General Club Roles</SelectLabel>
                               {generalClubRoles
-                                .filter(role => !electionPositionTitles.includes(role.toLowerCase()))
                                 .map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                            </SelectGroup>
                         </SelectContent>
@@ -405,42 +398,42 @@ export default function VotingPage() {
 
   const handleStart = async (email: string, ownPositionTitle: string) => {
     if (!room) return;
-    
-    const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
-    
-    if (result.success) {
-        // Define which roles are allowed to skip/abstain
-        const skippableRoles = [...facultyRoles, ...generalClubRoles];
-        const canSkip = skippableRoles.some(role => role.toLowerCase() === ownPositionTitle.toLowerCase());
-        
-        // Correctly filter out the user's own position from the ballot
-        const positionsToShow = room.positions.filter(
-            (p) => p.title.toLowerCase() !== ownPositionTitle.toLowerCase()
-        );
 
-        // Prepare the initial selections state for the ballot
-        const initialSelections: Record<string, any> = {};
-        positionsToShow.forEach(p => {
-            if (room.roomType === 'review') {
-                initialSelections[p.id] = { rating: 0, feedback: '' };
-            } else {
-                initialSelections[p.id] = null;
-            }
-        });
-        
-        // Update all states together to trigger a single re-render
-        setFilteredPositions(positionsToShow);
-        setSelections(initialSelections);
-        setIsCoordinator(canSkip); // This state now correctly represents if a user can skip
-        setVoterEmail(email);
-        setHasStarted(true);
+    const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
+
+    if (result.success) {
+      // Define which roles have special privileges (like skipping)
+      const skippableRoles = [...facultyRoles, ...generalClubRoles];
+      const canSkip = skippableRoles.some(role => role.toLowerCase() === ownPositionTitle.toLowerCase());
+      
+      // Filter out the user's own position from the ballot to prevent self-voting
+      const positionsToShow = room.positions.filter(
+        (p) => p.title.toLowerCase() !== ownPositionTitle.toLowerCase()
+      );
+
+      // Prepare the initial selections state for the ballot
+      const initialSelections: Record<string, any> = {};
+      positionsToShow.forEach(p => {
+        if (room.roomType === 'review') {
+          initialSelections[p.id] = { rating: 0, feedback: '' };
+        } else {
+          initialSelections[p.id] = null;
+        }
+      });
+      
+      // Update all states together to trigger a single re-render
+      setFilteredPositions(positionsToShow);
+      setSelections(initialSelections);
+      setIsCoordinator(canSkip);
+      setVoterEmail(email);
+      setHasStarted(true);
 
     } else {
-        toast({
-            variant: "destructive",
-            title: "Access Denied",
-            description: result.message
-        });
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: result.message,
+      });
     }
   };
   
