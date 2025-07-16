@@ -84,7 +84,7 @@ export default function ResultsPdfLayout({ room }: ResultsPdfLayoutProps) {
                         <th>Rank</th>
                         <th>Candidate</th>
                         <th>Position</th>
-                        <th>Total Votes</th>
+                        <th>Votes</th>
                     </tr>
                 </thead>
                 <tbody>
