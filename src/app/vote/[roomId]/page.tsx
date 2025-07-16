@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator, SelectLabel } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectSeparator, SelectLabel, SelectGroup } from "@/components/ui/select";
 
 
 function VotingSkeleton() {
@@ -339,19 +339,23 @@ const GuidelinesScreen = ({
                         <SelectContent>
                            <SelectItem value="coordinator">Coordinator</SelectItem>
                             <SelectSeparator />
-                            <SelectLabel>Positions in this Election</SelectLabel>
-                            {room.positions.map(pos => (
-                                <SelectItem key={pos.id} value={pos.id}>
-                                    {pos.title}
-                                </SelectItem>
-                            ))}
+                            <SelectGroup>
+                                <SelectLabel>Positions in this Election</SelectLabel>
+                                {room.positions.map(pos => (
+                                    <SelectItem key={pos.id} value={pos.id}>
+                                        {pos.title}
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
                             <SelectSeparator />
-                            <SelectLabel>General Club Roles</SelectLabel>
-                            {generalRoles.map(role => (
-                                <SelectItem key={role} value={role}>
-                                    {role}
-                                </SelectItem>
-                            ))}
+                            <SelectGroup>
+                                <SelectLabel>General Club Roles</SelectLabel>
+                                {generalRoles.map(role => (
+                                    <SelectItem key={role} value={role}>
+                                        {role}
+                                    </SelectItem>
+                                ))}
+                            </SelectGroup>
                         </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">This is to prevent you from voting for your own position. Coordinators and general members are exempt from this restriction.</p>
@@ -756,3 +760,5 @@ export default function VotingPage() {
     </div>
   );
 }
+
+    
