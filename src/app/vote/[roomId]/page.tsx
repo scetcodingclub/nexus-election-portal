@@ -234,11 +234,9 @@ const GuidelinesScreen = ({
     const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
     const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
     const generalClubRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
-    
-    const allRoles = [...facultyRoles, ...clubAuthorities, ...clubOperationTeam, ...generalClubRoles];
-    const electionPositionTitles = room.positions.map(p => p.title);
-    const availableRoles = allRoles.filter(role => !electionPositionTitles.includes(role));
 
+    const electionPositionTitles = room.positions.map(p => p.title.toLowerCase());
+    
     return (
         <Card className="max-w-2xl mx-auto shadow-lg">
             <CardHeader className="text-center">
@@ -319,22 +317,30 @@ const GuidelinesScreen = ({
                         <SelectContent>
                            <SelectGroup>
                               <SelectLabel>Faculty</SelectLabel>
-                              {facultyRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                              {facultyRoles
+                                .filter(role => !electionPositionTitles.includes(role.toLowerCase()))
+                                .map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                            </SelectGroup>
                            <SelectSeparator />
                            <SelectGroup>
                                <SelectLabel>Club Authorities</SelectLabel>
-                               {clubAuthorities.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                               {clubAuthorities
+                                .filter(role => !electionPositionTitles.includes(role.toLowerCase()))
+                                .map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                            </SelectGroup>
                            <SelectSeparator />
                            <SelectGroup>
                                <SelectLabel>Club Operation Team</SelectLabel>
-                               {clubOperationTeam.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                               {clubOperationTeam
+                                .filter(role => !electionPositionTitles.includes(role.toLowerCase()))
+                                .map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                            </SelectGroup>
                            <SelectSeparator />
                            <SelectGroup>
                               <SelectLabel>General Club Roles</SelectLabel>
-                              {generalClubRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                              {generalClubRoles
+                                .filter(role => !electionPositionTitles.includes(role.toLowerCase()))
+                                .map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                            </SelectGroup>
                         </SelectContent>
                     </Select>
@@ -406,18 +412,16 @@ export default function VotingPage() {
     const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
     
     if (result.success) {
-        // First, determine the correct list of positions to show on the ballot.
+        // Correctly filter out the user's own position from the ballot
         const positionsToShow = room.positions.filter(
-            p => p.title.toLowerCase() !== ownPositionTitle.toLowerCase()
+            (p) => p.title.toLowerCase() !== ownPositionTitle.toLowerCase()
         );
 
-        // Next, determine if the user has a role that allows skipping (Coordinator or General roles).
-        const coordinatorSelected = ownPositionTitle === 'Coordinator';
+        // Define which roles can skip positions (Coordinator + General Roles)
         const generalRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
-        const isGeneralRole = generalRoles.includes(ownPositionTitle);
-        const canSkip = coordinatorSelected || isGeneralRole;
+        const canSkip = ownPositionTitle === 'Coordinator' || generalRoles.includes(ownPositionTitle);
 
-        // Then, prepare the initial selections for the ballot.
+        // Prepare the initial selections state for the ballot
         const initialSelections: Record<string, any> = {};
         positionsToShow.forEach(p => {
             if (room.roomType === 'review') {
@@ -427,12 +431,13 @@ export default function VotingPage() {
             }
         });
         
-        // Finally, update all state at once to render the voting screen correctly.
+        // Update all states together to trigger a single re-render
         setVoterEmail(email);
         setFilteredPositions(positionsToShow);
         setSelections(initialSelections);
         setIsCoordinator(canSkip);
         setHasStarted(true);
+
     } else {
         toast({
             variant: "destructive",
@@ -494,7 +499,7 @@ export default function VotingPage() {
 
   const handleBack = () => {
     if (currentPositionIndex <= 0) return;
-    setCurrentPositionIndex(currentPositionIndex - 1);
+    setCurrentPositionIndex(currentPositionIndex + 1);
   };
   
   const handleSubmit = async () => {

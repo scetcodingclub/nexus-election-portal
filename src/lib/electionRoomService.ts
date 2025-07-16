@@ -262,7 +262,7 @@ export async function recordParticipantEntry(
     
     const isRestrictedRole = clubAuthorities.includes(ownPositionTitle) || clubOperationTeam.includes(ownPositionTitle);
 
-    // For restricted roles, enforce the single-submission rule based on position.
+    // For restricted roles, enforce the single-submission-per-position rule.
     if (isRestrictedRole) {
         const votersColRef = collection(db, "electionRooms", roomId, "voters");
         const q = query(votersColRef, where("ownPositionTitle", "==", ownPositionTitle), where("status", "==", "completed"));
@@ -278,7 +278,8 @@ export async function recordParticipantEntry(
         await runTransaction(db, async (transaction) => {
             const voterDoc = await transaction.get(voterRef);
             if (voterDoc.exists()) {
-                if (voterDoc.data().status === 'completed' && isRestrictedRole) {
+                 // Even for non-restricted roles, if THIS SPECIFIC user has already completed, block them.
+                if (voterDoc.data().status === 'completed') {
                     throw new Error("You have already completed your submission for this room.");
                 }
                  transaction.update(voterRef, {
@@ -308,19 +309,9 @@ export async function submitBallot(
   try {
     const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
     
-    // Re-check for restricted roles before finalizing submission
-    const roomSnapForRole = await getDoc(doc(db, "electionRooms", roomId));
-    const voterDocForRole = await getDoc(voterRef);
-    const ownPositionTitle = voterDocForRole.exists() ? voterDocForRole.data().ownPositionTitle : '';
-    const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
-    const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
-    const isRestrictedRole = clubAuthorities.includes(ownPositionTitle) || clubOperationTeam.includes(ownPositionTitle);
-
-    if (isRestrictedRole) {
-        const voterSnap = await getDoc(voterRef);
-        if (voterSnap.exists() && voterSnap.data().status === 'completed') {
-          return { success: false, message: "You have already voted in this election." };
-        }
+    const voterSnap = await getDoc(voterRef);
+    if (voterSnap.exists() && voterSnap.data().status === 'completed') {
+      return { success: false, message: "You have already voted in this election." };
     }
 
     const roomRef = doc(db, "electionRooms", roomId);
@@ -365,19 +356,9 @@ export async function submitReview(
   try {
     const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
     
-     // Re-check for restricted roles before finalizing submission
-    const roomSnapForRole = await getDoc(doc(db, "electionRooms", roomId));
-    const voterDocForRole = await getDoc(voterRef);
-    const ownPositionTitle = voterDocForRole.exists() ? voterDocForRole.data().ownPositionTitle : '';
-    const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
-    const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
-    const isRestrictedRole = clubAuthorities.includes(ownPositionTitle) || clubOperationTeam.includes(ownPositionTitle);
-
-    if (isRestrictedRole) {
-        const voterSnap = await getDoc(voterRef);
-        if (voterSnap.exists() && voterSnap.data().status === 'completed') {
-            return { success: false, message: "You have already submitted a review for this room." };
-        }
+    const voterSnap = await getDoc(voterRef);
+    if (voterSnap.exists() && voterSnap.data().status === 'completed') {
+        return { success: false, message: "You have already submitted a review for this room." };
     }
 
     const roomRef = doc(db, "electionRooms", roomId);
