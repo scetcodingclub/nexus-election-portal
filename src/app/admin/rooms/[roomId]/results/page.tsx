@@ -145,12 +145,12 @@ export default function ElectionResultsPage() {
     // Set document properties
     doc.setProperties({ title: title });
 
-    // Use autoTable for title and description to handle text wrapping
+    // Use autoTable for title and description to handle text wrapping and centering
     autoTable(doc, {
       body: [
-        [{ content: room.title, styles: { fontSize: 18, fontStyle: 'bold' } }],
-        [{ content: room.description, styles: { fontSize: 12 } }],
-        [{ content: `Generated on: ${new Date().toLocaleString()}`, styles: { fontSize: 9, textColor: '#777' } }],
+        [{ content: room.title, styles: { fontSize: 18, fontStyle: 'bold', halign: 'center' } }],
+        [{ content: room.description, styles: { fontSize: 12, halign: 'center' } }],
+        [{ content: `Generated on: ${new Date().toLocaleString()}`, styles: { fontSize: 9, textColor: '#777', halign: 'center' } }],
       ],
       theme: 'plain',
       styles: {
@@ -171,10 +171,12 @@ export default function ElectionResultsPage() {
       }
     });
     
+    // Start Leaderboard on a new page
+    doc.addPage();
+
     // Add Overall Leaderboard table
     autoTable(doc, {
       html: '#pdf-leaderboard-table',
-       startY: (doc as any).lastAutoTable.finalY + 10,
       headStyles: { fillColor: [0, 121, 107] }, // #00796B
     });
 

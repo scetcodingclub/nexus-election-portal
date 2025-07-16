@@ -36,26 +36,26 @@ export default function ResultsPdfLayout({ room }: ResultsPdfLayoutProps) {
                         <th>Rank</th>
                         <th>Candidate</th>
                         <th>Votes</th>
-                        <th>% of Total</th>
                     </tr>
                 </thead>
                 <tbody>
                     {room.positions.map((position) => {
                         const sortedCandidates = [...position.candidates].sort((a, b) => (b.voteCount || 0) - (a.voteCount || 0));
-                        const totalVotesInPosition = position.candidates.reduce((sum, c) => sum + (c.voteCount || 0), 0);
                         const maxVotes = sortedCandidates.length > 0 ? (sortedCandidates[0].voteCount || 0) : 0;
                         
                         return sortedCandidates.map((candidate, index) => {
-                             const percentage = totalVotesInPosition > 0 ? (((candidate.voteCount || 0) / totalVotesInPosition) * 100).toFixed(1) : "0.0";
                              const isWinner = (candidate.voteCount || 0) === maxVotes && maxVotes > 0;
                              
                              return (
                                 <tr key={candidate.id}>
-                                    <td>{position.title}</td>
+                                    {index === 0 && (
+                                        <td rowSpan={sortedCandidates.length}>
+                                            {position.title}
+                                        </td>
+                                    )}
                                     <td>{index + 1}{isWinner ? ' (Winner)' : ''}</td>
                                     <td>{candidate.name}</td>
                                     <td>{candidate.voteCount || 0}</td>
-                                    <td>{percentage}%</td>
                                 </tr>
                              )
                         });
