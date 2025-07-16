@@ -28,7 +28,7 @@ import { storage, db } from "@/lib/firebaseClient";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { facultyRoles, clubAuthorities, clubOperationTeam } from "@/lib/roles";
+import { facultyRoles, clubAuthorities, clubOperationTeam, generalClubRoles } from "@/lib/roles";
 
 
 const candidateSchema = z.object({
@@ -316,7 +316,7 @@ interface PositionCardProps {
 
 function PositionCard({ positionIndex, removePosition, form, initialData, isOnlyPosition }: PositionCardProps) {
   const { control } = form;
-  const allElectionRoles = [...facultyRoles, ...clubAuthorities, ...clubOperationTeam];
+  const allElectionRoles = [...facultyRoles, ...clubAuthorities, ...clubOperationTeam, ...generalClubRoles];
 
   return (
      <Card className="relative group/position">

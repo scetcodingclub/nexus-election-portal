@@ -5,7 +5,7 @@ import { ShieldCheckIcon, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export default function AdminLoginPagenotfound() {
+export default function AdminLoginPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)] py-12">
       <div className="w-full max-w-md">

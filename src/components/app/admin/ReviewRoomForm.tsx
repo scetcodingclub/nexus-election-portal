@@ -26,7 +26,7 @@ import { useState, useEffect } from "react";
 import { db } from "@/lib/firebaseClient"; 
 import { doc, setDoc, addDoc, collection, serverTimestamp, Timestamp } from "firebase/firestore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { facultyRoles, clubAuthorities, clubOperationTeam } from "@/lib/roles";
+import { facultyRoles, clubAuthorities, clubOperationTeam, generalClubRoles } from "@/lib/roles";
 
 const candidateSchema = z.object({
   id: z.string().optional(), 
@@ -303,7 +303,7 @@ interface PositionCardProps {
 
 function PositionCard({ positionIndex, removePosition, form, isOnlyPosition }: PositionCardProps) {
   const { control } = form;
-  const allElectionRoles = [...facultyRoles, ...clubAuthorities, ...clubOperationTeam];
+  const allElectionRoles = [...facultyRoles, ...clubAuthorities, ...clubOperationTeam, ...generalClubRoles];
 
   return (
     <Card className="relative group/position">
