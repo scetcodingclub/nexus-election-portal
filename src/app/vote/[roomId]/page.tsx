@@ -234,6 +234,10 @@ const GuidelinesScreen = ({
     const clubAuthorities = ["President", "Vice-President", "Technical Manager", "Event Manager", "Workshop Manager", "Project Manager", "PR Manager", "Convo Manager", "General Secretary"];
     const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
     const generalClubRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
+    
+    const allRoles = [...facultyRoles, ...clubAuthorities, ...clubOperationTeam, ...generalClubRoles];
+    const electionPositionTitles = room.positions.map(p => p.title);
+    const availableRoles = allRoles.filter(role => !electionPositionTitles.includes(role));
 
     return (
         <Card className="max-w-2xl mx-auto shadow-lg">
@@ -398,40 +402,43 @@ export default function VotingPage() {
 
   const handleStart = async (email: string, ownPositionTitle: string) => {
     if (!room) return;
-    setVoterEmail(email);
+    
     const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
     
     if (result.success) {
-        // Correctly set coordinator/general role status first
+        // First, determine the correct list of positions to show on the ballot.
+        const positionsToShow = room.positions.filter(
+            p => p.title.toLowerCase() !== ownPositionTitle.toLowerCase()
+        );
+
+        // Next, determine if the user has a role that allows skipping (Coordinator or General roles).
         const coordinatorSelected = ownPositionTitle === 'Coordinator';
         const generalRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
         const isGeneralRole = generalRoles.includes(ownPositionTitle);
-        setIsCoordinator(coordinatorSelected || isGeneralRole);
-        
-        // Then, filter the positions to be shown on the ballot
-        const positionsToShow = room.positions.filter(p => p.title.toLowerCase() !== ownPositionTitle.toLowerCase());
-        setFilteredPositions(positionsToShow);
+        const canSkip = coordinatorSelected || isGeneralRole;
 
-        // Initialize selections for the filtered positions
+        // Then, prepare the initial selections for the ballot.
         const initialSelections: Record<string, any> = {};
-        if (room.roomType === 'review') {
-          positionsToShow.forEach(p => {
-            initialSelections[p.id] = { rating: 0, feedback: '' };
-          });
-        } else {
-          positionsToShow.forEach(p => {
-              initialSelections[p.id] = null;
-          });
-        }
+        positionsToShow.forEach(p => {
+            if (room.roomType === 'review') {
+                initialSelections[p.id] = { rating: 0, feedback: '' };
+            } else {
+                initialSelections[p.id] = null;
+            }
+        });
+        
+        // Finally, update all state at once to render the voting screen correctly.
+        setVoterEmail(email);
+        setFilteredPositions(positionsToShow);
         setSelections(initialSelections);
+        setIsCoordinator(canSkip);
         setHasStarted(true);
-
     } else {
         toast({
             variant: "destructive",
             title: "Access Denied",
             description: result.message
-        })
+        });
     }
   };
   
@@ -487,7 +494,7 @@ export default function VotingPage() {
 
   const handleBack = () => {
     if (currentPositionIndex <= 0) return;
-    setCurrentPositionIndex(currentPositionIndex + 1);
+    setCurrentPositionIndex(currentPositionIndex - 1);
   };
   
   const handleSubmit = async () => {
