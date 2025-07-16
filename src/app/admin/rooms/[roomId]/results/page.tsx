@@ -59,8 +59,8 @@ function OverallLeaderboard({ room }: { room: ElectionRoom }) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Trophy className="mr-2 h-6 w-6 text-amber-500" />
+                <CardTitle className="flex items-center text-2xl font-headline">
+                  <Trophy className="mr-3 h-7 w-7 text-amber-500" />
                   Overall Leaderboard
                 </CardTitle>
                 <CardDescription>All candidates ranked by total votes across all positions.</CardDescription>
@@ -69,7 +69,7 @@ function OverallLeaderboard({ room }: { room: ElectionRoom }) {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[50px]">Rank</TableHead>
+                            <TableHead className="w-[80px]">Rank</TableHead>
                             <TableHead>Candidate</TableHead>
                             <TableHead>Position</TableHead>
                             <TableHead className="text-right">Votes</TableHead>
@@ -92,7 +92,7 @@ function OverallLeaderboard({ room }: { room: ElectionRoom }) {
                                         <span className="font-medium">{candidate.name}</span>
                                     </div>
                                 </TableCell>
-                                <TableCell>{candidate.positionTitle}</TableCell>
+                                <TableCell className="text-muted-foreground">{candidate.positionTitle}</TableCell>
                                 <TableCell className="text-right font-bold text-lg">
                                   {`${candidate.voteCount || 0} / ${candidate.totalVotesInPosition}`}
                                 </TableCell>
