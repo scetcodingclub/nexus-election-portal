@@ -24,29 +24,26 @@ const StarRating = ({
     if (disabled) return;
     const clickedStarValue = index + 1;
 
-    // If clicking the same star that represents the current half-star rating
+    // If clicking the same star that is currently a half-star rating
     if (rating === clickedStarValue - 0.5) {
       onRatingChange(clickedStarValue); // Upgrade to full star
     } 
-    // If clicking a star that is already fully selected (or any other case)
+    // If the star is already full, clicking it again will reset it to a half star
+    else if (rating === clickedStarValue) {
+      onRatingChange(clickedStarValue - 0.5);
+    }
+    // Otherwise, it's a new click, so set to a half star
     else {
-      onRatingChange(clickedStarValue - 0.5); // Default to half star on first/new click
+      onRatingChange(clickedStarValue - 0.5);
     }
   };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLButtonElement>, index: number) => {
-    if (disabled) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const isOverHalf = (e.clientX - rect.left) > rect.width / 2;
-    setHoverRating(index + (isOverHalf ? 1 : 0.5));
-  };
-
-
+  
   return (
     <div className="flex items-center" onMouseLeave={() => !disabled && setHoverRating(0)}>
       {[...Array(starCount)].map((_, index) => {
         const starValue = index + 1;
-        const displayRating = hoverRating || rating;
+        // Use the actual rating for display, hover is disabled to simplify interaction
+        const displayRating = rating; 
         
         const isFull = displayRating >= starValue;
         const isHalf = displayRating === starValue - 0.5;
@@ -56,8 +53,7 @@ const StarRating = ({
             key={index}
             type="button"
             onClick={() => handleStarClick(index)}
-            onMouseEnter={() => !disabled && setHoverRating(starValue - 0.5)}
-            onMouseMove={(e) => handleMouseMove(e, index)}
+            onMouseEnter={() => !disabled && setHoverRating(starValue)}
             disabled={disabled}
             className={cn(
               "p-1 transition-transform duration-200 focus:outline-none focus:ring-0",

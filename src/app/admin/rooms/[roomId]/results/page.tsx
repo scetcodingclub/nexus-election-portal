@@ -156,7 +156,7 @@ export default function ElectionResultsPage() {
     const doc = new jsPDF();
 
     const title = `${room.title} - Results`;
-    const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const safeTitle = title.replace(/[^a-z0-n]/gi, '_').toLowerCase();
 
     // Set document properties
     doc.setProperties({ title: title });
@@ -183,15 +183,18 @@ export default function ElectionResultsPage() {
                     [{ content: `Review for: ${position.title} - ${position.candidates[0]?.name || ''}`, styles: { fontSize: 16, fontStyle: 'bold' }}],
                     [{ content: `Average Rating: ${position.averageRating?.toFixed(2) || 'N/A'} / 5 ★`, styles: { fontSize: 12 } }],
                 ],
-                theme: 'plain'
+                theme: 'plain',
+                styles: { font: 'times' },
+                startY: (doc as any).lastAutoTable.finalY + 5,
             });
 
             autoTable(doc, {
                 head: [['Feedback Received']],
                 body: (position.reviews || []).map(review => [review.feedback]),
-                startY: (doc as any).lastAutoTable.finalY + 2,
+                startY: (doc as any).lastAutoTable.finalY + 10,
                 theme: 'grid',
-                headStyles: { fillColor: [0, 121, 107] }, // #00796B
+                headStyles: { fillColor: [0, 121, 107], font: 'times' }, // #00796B
+                bodyStyles: { font: 'times' },
             });
         });
     } else {
@@ -200,17 +203,17 @@ export default function ElectionResultsPage() {
           html: '#pdf-results-table',
           startY: (doc as any).lastAutoTable.finalY + 10,
           theme: 'grid',
-          headStyles: { fillColor: [0, 121, 107] }, // #00796B
+          headStyles: { fillColor: [0, 121, 107], font: 'times' }, // #00796B
+          bodyStyles: { font: 'times' },
           didParseCell: (data) => {
             if (data.cell.raw) {
                 const rawCell = data.cell.raw as HTMLElement;
                 if (rawCell.querySelector('img')) {
                     data.cell.text = '';
                 }
-                // Custom styling for winner rows
                 if (data.row.raw && (data.row.raw as HTMLElement).classList?.contains('winner-row')) {
-                    data.cell.styles.fillColor = 'transparent'; // Remove gray background
-                    data.cell.styles.textColor = 'black'; // Ensure text is visible
+                    data.cell.styles.fillColor = 'transparent';
+                    data.cell.styles.textColor = 'black';
                 }
             }
           }
@@ -221,14 +224,16 @@ export default function ElectionResultsPage() {
         
         autoTable(doc, {
            body: [[{ content: 'Overall Leaderboard', styles: { fontSize: 18, fontStyle: 'bold' } }]],
-           theme: 'plain'
+           theme: 'plain',
+           styles: { font: 'times' }
         });
 
         autoTable(doc, {
           html: '#pdf-leaderboard-table',
           startY: (doc as any).lastAutoTable.finalY + 2,
           theme: 'grid',
-          headStyles: { fillColor: [0, 121, 107] }, // #00796B
+          headStyles: { fillColor: [0, 121, 107], font: 'times' }, // #00796B
+          bodyStyles: { font: 'times' },
         });
     }
 
