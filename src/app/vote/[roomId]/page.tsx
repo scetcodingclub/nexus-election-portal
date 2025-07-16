@@ -235,11 +235,6 @@ const GuidelinesScreen = ({
     const clubOperationTeam = ["Technical Lead", "Event Lead", "Workshop Lead", "Project Lead", "PR Lead", "Convo Lead", "Assistant Secretary"];
     const generalClubRoles = ["Content Writing", "PR - Head", "Public Relation Team", "Design and Content Creation Team", "Documentation and Archive Team", "Logistics Team", "Technical Team", "Networking and Collaboration Team", "Member"];
 
-    const electionPositionTitles = new Set(room.positions.map(p => p.title.trim()));
-    
-    const authoritiesToShow = clubAuthorities.filter(r => !electionPositionTitles.has(r));
-    const operationTeamToShow = clubOperationTeam.filter(r => !electionPositionTitles.has(r));
-
     return (
         <Card className="max-w-2xl mx-auto shadow-lg">
             <CardHeader className="text-center">
@@ -288,7 +283,7 @@ const GuidelinesScreen = ({
                            <div>
                                <h4 className="font-semibold mb-2 flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-green-600" />Your Privacy is Protected</h4>
                                <p>
-                                   To ensure fairness for restricted roles, we require your email to prevent multiple submissions. 
+                                   To ensure fairness for restricted roles, we require your email and position to prevent multiple submissions from the same position. 
                                    However, your {room.roomType === 'review' ? 'review' : 'vote'} itself is **completely anonymous**. Your email will not be linked to your specific choices.
                                </p>
                            </div>
@@ -323,18 +318,15 @@ const GuidelinesScreen = ({
                               {facultyRoles.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
                            </SelectGroup>
                            <SelectSeparator />
-                           {authoritiesToShow.length > 0 && (
-                               <SelectGroup>
-                                   <SelectLabel>Club Authorities</SelectLabel>
-                                   {authoritiesToShow.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-                               </SelectGroup>
-                           )}
-                           {operationTeamToShow.length > 0 && (
-                               <SelectGroup>
-                                   <SelectLabel>Club Operation Team</SelectLabel>
-                                   {operationTeamToShow.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
-                               </SelectGroup>
-                           )}
+                           <SelectGroup>
+                               <SelectLabel>Club Authorities</SelectLabel>
+                               {clubAuthorities.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                           </SelectGroup>
+                           <SelectSeparator />
+                           <SelectGroup>
+                               <SelectLabel>Club Operation Team</SelectLabel>
+                               {clubOperationTeam.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                           </SelectGroup>
                            <SelectSeparator />
                            <SelectGroup>
                               <SelectLabel>General Club Roles</SelectLabel>

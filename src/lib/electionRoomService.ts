@@ -262,19 +262,23 @@ export async function recordParticipantEntry(
     
     const isRestrictedRole = clubAuthorities.includes(ownPositionTitle) || clubOperationTeam.includes(ownPositionTitle);
 
-    // If the role is not restricted, bypass the check and allow entry.
-    if (!isRestrictedRole) {
-        return { success: true, message: "Entry recorded for unrestricted role." };
+    // For restricted roles, enforce the single-submission rule based on position.
+    if (isRestrictedRole) {
+        const votersColRef = collection(db, "electionRooms", roomId, "voters");
+        const q = query(votersColRef, where("ownPositionTitle", "==", ownPositionTitle), where("status", "==", "completed"));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            return { success: false, message: `A submission for the role "${ownPositionTitle}" has already been completed.` };
+        }
     }
     
-    // For restricted roles, enforce the single-submission rule.
+    // For all roles, record their entry or update their activity timestamp.
     const voterRef = doc(db, "electionRooms", roomId, "voters", voterEmail);
-
     try {
         await runTransaction(db, async (transaction) => {
             const voterDoc = await transaction.get(voterRef);
             if (voterDoc.exists()) {
-                if (voterDoc.data().status === 'completed') {
+                if (voterDoc.data().status === 'completed' && isRestrictedRole) {
                     throw new Error("You have already completed your submission for this room.");
                 }
                  transaction.update(voterRef, {
@@ -340,13 +344,11 @@ export async function submitBallot(
     }
     await Promise.all(votesPromises);
     
-    if (isRestrictedRole) {
-        await setDoc(voterRef, {
-          status: 'completed',
-          lastActivity: serverTimestamp(),
-          votedAt: serverTimestamp(),
-        }, { merge: true });
-    }
+    await setDoc(voterRef, {
+      status: 'completed',
+      lastActivity: serverTimestamp(),
+      votedAt: serverTimestamp(),
+    }, { merge: true });
 
     return { success: true, message: "Your ballot has been successfully submitted." };
   } catch (error: any) {
@@ -410,13 +412,11 @@ export async function submitReview(
     }
     await Promise.all(reviewPromises);
     
-    if (isRestrictedRole) {
-        await setDoc(voterRef, {
-          status: 'completed',
-          lastActivity: serverTimestamp(),
-          votedAt: serverTimestamp(),
-        }, { merge: true });
-    }
+    await setDoc(voterRef, {
+      status: 'completed',
+      lastActivity: serverTimestamp(),
+      votedAt: serverTimestamp(),
+    }, { merge: true });
     
     return { success: true, message: "Your review has been successfully submitted." };
   } catch (error: any) {
