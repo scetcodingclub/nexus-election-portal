@@ -24,8 +24,6 @@ export const clubOperationTeam = [
 ];
 
 export const generalClubRoles = [
-    "Content Writing", 
-    "PR - Head", 
     "Public Relation Team",
     "Design and Content Creation Team", 
     "Documentation and Archive Team", 
