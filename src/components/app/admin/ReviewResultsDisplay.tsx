@@ -41,20 +41,17 @@ export default function ReviewResultsDisplay({ room }: ReviewResultsDisplayProps
                     <Accordion type="single" collapsible className="w-full">
                         <AccordionItem value="item-1">
                             <AccordionTrigger className="text-base">
-                                {`View all ${totalReviews} feedback entries`}
+                                {`View all ${totalReviews} anonymous feedback entries`}
                             </AccordionTrigger>
                             <AccordionContent>
                                 {totalReviews > 0 ? (
                                      <div className="space-y-4 pt-4 max-h-[400px] overflow-y-auto pr-2">
                                         {position.reviews?.map((review, index) => (
-                                            <div key={index} className="border-b pb-4">
-                                                <div className="flex items-center justify-between mb-2">
-                                                     <StarRating rating={review.rating} onRatingChange={() => {}} disabled={true} />
-                                                     <p className="text-xs text-muted-foreground">
-                                                        {formatDistanceToNow(new Date(review.reviewedAt), { addSuffix: true })}
-                                                     </p>
-                                                </div>
+                                            <div key={index} className="border-b pb-4 last:border-b-0">
                                                 <p className="text-sm bg-muted/50 p-3 rounded-md">{review.feedback}</p>
+                                                <p className="text-xs text-muted-foreground text-right mt-1">
+                                                    Submitted {formatDistanceToNow(new Date(review.reviewedAt), { addSuffix: true })}
+                                                </p>
                                             </div>
                                         ))}
                                     </div>
