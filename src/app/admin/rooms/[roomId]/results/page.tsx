@@ -201,13 +201,16 @@ export default function ElectionResultsPage() {
           theme: 'grid',
           headStyles: { fillColor: [0, 121, 107] }, // #00796B
           didParseCell: (data) => {
-            const rawCell = data.cell.raw as HTMLElement;
-            if (rawCell && rawCell.querySelector('img')) {
-              data.cell.text = '';
-            }
-            if (data.row.raw && (data.row.raw as HTMLElement).classList?.contains('winner-row')) {
-                data.cell.styles.fillColor = 'transparent'; 
-                data.cell.styles.textColor = 'black'; 
+            if (data.cell.raw) {
+                const rawCell = data.cell.raw as HTMLElement;
+                if (rawCell.querySelector('img')) {
+                    data.cell.text = '';
+                }
+                // Custom styling for winner rows
+                if (rawCell.classList && rawCell.classList.contains('winner-row')) {
+                    data.cell.styles.fillColor = 'transparent'; // Remove gray background
+                    data.cell.styles.textColor = 'black'; // Ensure text is visible
+                }
             }
           }
         };
