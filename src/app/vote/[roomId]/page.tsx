@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Send, ArrowRight, ArrowLeft, Loader2, Info, ShieldCheck, X, UserCheck, Hand, Circle } from "lucide-react";
+import { Check, Send, ArrowRight, ArrowLeft, Loader2, Info, ShieldCheck, X, UserCheck, Hand, Circle, SkipForward } from "lucide-react";
 import StarRating from "@/components/app/StarRating";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
@@ -58,11 +58,15 @@ function VotingSkeleton() {
 const VotingPositionCard = ({
   position,
   onVote,
+  onSkip,
   selection,
+  isCoordinator,
 }: {
   position: Position;
   onVote: (candidateId: string) => void;
+  onSkip: () => void;
   selection: string | null;
+  isCoordinator?: boolean;
 }) => (
   <Card key={position.id}>
     <CardHeader>
@@ -101,6 +105,11 @@ const VotingPositionCard = ({
           </Button>
         );
       })}
+       {isCoordinator && (
+        <Button variant="secondary" className="w-full mt-4" onClick={onSkip}>
+          <SkipForward className="mr-2 h-4 w-4" /> Abstain / Skip Position
+        </Button>
+      )}
     </CardContent>
   </Card>
 );
@@ -184,7 +193,7 @@ const ReviewPositionCard = ({
         </div>
       </div>
       <div>
-        <Label htmlFor={`feedback-${position.id}`}>Feedback (Required: 10+ characters)</Label>
+        <Label htmlFor={`feedback-${position.id}`}>Feedback (Optional for Coordinators, 10+ characters required for others)</Label>
         <Textarea 
           id={`feedback-${position.id}`}
           placeholder="Enter your detailed feedback here..." 
@@ -351,6 +360,7 @@ export default function VotingPage() {
   
   const [hasStarted, setHasStarted] = useState(false);
   const [voterEmail, setVoterEmail] = useState("");
+  const [isCoordinator, setIsCoordinator] = useState(false);
   const [filteredPositions, setFilteredPositions] = useState<Position[]>([]);
   
   const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
@@ -385,8 +395,10 @@ export default function VotingPage() {
     const result = await recordParticipantEntry(roomId, email, ownPositionTitle);
     if (result.success) {
         let positionsToShow: Position[];
+        const coordinatorSelected = ownPositionId === 'coordinator';
+        setIsCoordinator(coordinatorSelected);
 
-        if (ownPositionId === 'coordinator') {
+        if (coordinatorSelected) {
             // Coordinator sees all positions
             positionsToShow = room.positions;
         } else {
@@ -424,12 +436,10 @@ export default function VotingPage() {
     const positionId = filteredPositions[currentPositionIndex].id;
     setSelections(prev => ({ ...prev, [positionId]: selectionValue }));
 
-    if (room?.roomType === 'voting' && filteredPositions[currentPositionIndex].candidates.length > 1) {
+    if (room?.roomType === 'voting' && filteredPositions[currentPositionIndex].candidates.length > 1 && !isCoordinator) {
       setTimeout(() => {
         if (currentPositionIndex < filteredPositions.length - 1) {
           setCurrentPositionIndex(currentPositionIndex + 1);
-        } else {
-          // On last position, user must click submit
         }
       }, 300);
     }
@@ -444,9 +454,23 @@ export default function VotingPage() {
     }));
   };
 
+  const handleSkip = () => {
+      // Set selection for this position to null (abstain)
+      const positionId = filteredPositions[currentPositionIndex].id;
+      setSelections(prev => ({ ...prev, [positionId]: null }));
+      // Move to the next position
+      if (currentPositionIndex < filteredPositions.length - 1) {
+          setCurrentPositionIndex(currentPositionIndex + 1);
+      } else {
+          // If it's the last question, user must click submit
+      }
+  };
+
   const handleNext = () => {
     if (!room || !filteredPositions || currentPositionIndex >= filteredPositions.length - 1) return;
-    if (room.roomType === 'review') {
+    
+    // Bypass validation for coordinators in review rooms
+    if (room.roomType === 'review' && !isCoordinator) {
       const currentPositionId = filteredPositions[currentPositionIndex].id;
       const currentReview = selections[currentPositionId];
       if (!currentReview || currentReview.rating === 0) {
@@ -472,8 +496,8 @@ export default function VotingPage() {
         return;
     }
 
-    // Final validation for review rooms before submitting
-    if (room.roomType === 'review') {
+    // Final validation for review rooms before submitting (bypassed for coordinators)
+    if (room.roomType === 'review' && !isCoordinator) {
       const currentPositionId = filteredPositions[currentPositionIndex].id;
       const currentReview = selections[currentPositionId];
       if (!currentReview || currentReview.rating === 0) {
@@ -489,7 +513,13 @@ export default function VotingPage() {
     setIsSubmitting(true);
     let result;
     if (room.roomType === 'review') {
-      result = await submitReview(roomId, voterEmail, selections);
+      const validSelections = Object.entries(selections).reduce((acc, [posId, sel]) => {
+          if (sel.rating > 0 && sel.feedback.trim().length > 0) {
+              acc[posId] = sel;
+          }
+          return acc;
+      }, {} as Record<string, any>);
+      result = await submitReview(roomId, voterEmail, validSelections);
     } else {
       result = await submitBallot(roomId, voterEmail, selections);
     }
@@ -653,7 +683,9 @@ export default function VotingPage() {
         key={currentPosition.id} 
         position={currentPosition}
         onVote={handleVoteSelection}
+        onSkip={handleSkip}
         selection={currentSelection}
+        isCoordinator={isCoordinator}
       />
     );
   };
@@ -705,3 +737,4 @@ export default function VotingPage() {
     </div>
   );
 }
+
