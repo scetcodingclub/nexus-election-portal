@@ -154,38 +154,40 @@ export default function ElectionResultsPage() {
     setIsExporting(true);
 
     const doc = new jsPDF();
-
     const title = `${room.title} - Results`;
     const safeTitle = title.replace(/[^a-z0-n]/gi, '_').toLowerCase();
 
-    // Set document properties
     doc.setProperties({ title: title });
 
-    // Use autoTable for title and description to handle text wrapping and centering
     autoTable(doc, {
-      body: [
-        [{ content: room.title, styles: { fontSize: 18, fontStyle: 'bold', halign: 'center' } }],
-        [{ content: room.description, styles: { fontSize: 12, halign: 'center' } }],
-        [{ content: `Generated on: ${new Date().toLocaleString()}`, styles: { fontSize: 9, textColor: '#777', halign: 'center' } }],
-      ],
-      theme: 'plain',
-      styles: {
-        cellPadding: { top: 1, right: 0, bottom: 1, left: 0 },
-        font: 'times',
-      }
+        body: [
+            [{ content: room.title, styles: { fontSize: 18, fontStyle: 'bold', halign: 'center' } }],
+            [{ content: room.description, styles: { fontSize: 12, halign: 'center' } }],
+            [{ content: `Generated on: ${new Date().toLocaleString()}`, styles: { fontSize: 9, textColor: '#777', halign: 'center' } }],
+        ],
+        theme: 'plain',
+        styles: {
+            cellPadding: { top: 1, right: 0, bottom: 1, left: 0 },
+            font: 'times',
+        }
     });
-    
+
     if (room.roomType === 'review') {
         room.positions.forEach((position, index) => {
-            if (index > 0) doc.addPage();
+            if (index > 0) {
+                doc.addPage();
+            }
+
+            const startY = index === 0 ? (doc as any).lastAutoTable.finalY + 5 : 15;
+
             autoTable(doc, {
                 body: [
-                    [{ content: `Review for: ${position.title} - ${position.candidates[0]?.name || ''}`, styles: { fontSize: 16, fontStyle: 'bold' }}],
-                    [{ content: `Average Rating: ${position.averageRating?.toFixed(2) || 'N/A'} / 5 ★`, styles: { fontSize: 12 } }],
+                    [{ content: `Review for: ${position.title} - ${position.candidates[0]?.name || ''}`, styles: { fontSize: 16, fontStyle: 'bold' } }],
+                    [{ content: `Average Rating: ${position.averageRating?.toFixed(2) || 'N/A'} ★`, styles: { fontSize: 12 } }],
                 ],
                 theme: 'plain',
                 styles: { font: 'times' },
-                startY: (doc as any).lastAutoTable.finalY + 5,
+                startY: startY,
             });
 
             autoTable(doc, {
@@ -193,50 +195,48 @@ export default function ElectionResultsPage() {
                 body: (position.reviews || []).map((review, reviewIndex) => [reviewIndex + 1, review.feedback]),
                 startY: (doc as any).lastAutoTable.finalY + 10,
                 theme: 'grid',
-                headStyles: { fillColor: [0, 121, 107], font: 'times' }, // #00796B
+                headStyles: { fillColor: [0, 121, 107], textColor: [255, 255, 255], font: 'times' },
                 bodyStyles: { font: 'times' },
                 columnStyles: {
-                    0: { cellWidth: 15, halign: 'center' }, // S.No column
+                    0: { cellWidth: 15, halign: 'center' },
                 },
             });
         });
     } else {
-        // Existing Voting results export
         const tableOptions: UserOptions = {
-          html: '#pdf-results-table',
-          startY: (doc as any).lastAutoTable.finalY + 10,
-          theme: 'grid',
-          headStyles: { fillColor: [0, 121, 107], font: 'times' }, // #00796B
-          bodyStyles: { font: 'times' },
-          didParseCell: (data) => {
-            if (data.cell.raw) {
-                const rawCell = data.cell.raw as HTMLElement;
-                if (rawCell.querySelector('img')) {
-                    data.cell.text = '';
+            html: '#pdf-results-table',
+            startY: (doc as any).lastAutoTable.finalY + 10,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 121, 107], font: 'times', textColor: [255, 255, 255] },
+            bodyStyles: { font: 'times' },
+            didParseCell: (data) => {
+                if (data.cell.raw instanceof HTMLElement) {
+                    if (data.cell.raw.querySelector('img')) {
+                        data.cell.text = '';
+                    }
                 }
-                if (data.row.raw && (data.row.raw as HTMLElement).classList?.contains('winner-row')) {
+                if (data.row.raw instanceof HTMLElement && data.row.raw.classList.contains('winner-row')) {
                     data.cell.styles.fillColor = 'transparent';
                     data.cell.styles.textColor = 'black';
                 }
             }
-          }
         };
         autoTable(doc, tableOptions);
-        
+
         doc.addPage();
-        
+
         autoTable(doc, {
-           body: [[{ content: 'Overall Leaderboard', styles: { fontSize: 18, fontStyle: 'bold' } }]],
-           theme: 'plain',
-           styles: { font: 'times' }
+            body: [[{ content: 'Overall Leaderboard', styles: { fontSize: 18, fontStyle: 'bold' } }]],
+            theme: 'plain',
+            styles: { font: 'times' }
         });
 
         autoTable(doc, {
-          html: '#pdf-leaderboard-table',
-          startY: (doc as any).lastAutoTable.finalY + 2,
-          theme: 'grid',
-          headStyles: { fillColor: [0, 121, 107], font: 'times' }, // #00796B
-          bodyStyles: { font: 'times' },
+            html: '#pdf-leaderboard-table',
+            startY: (doc as any).lastAutoTable.finalY + 2,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 121, 107], font: 'times', textColor: [255, 255, 255] },
+            bodyStyles: { font: 'times' },
         });
     }
 
