@@ -4,19 +4,155 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, notFound } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebaseClient";
+import { auth, db } from "@/lib/firebaseClient";
 import { getElectionRoomById } from "@/lib/electionRoomService";
-import type { ElectionRoom } from "@/lib/types";
+import type { ElectionRoom, Voter } from "@/lib/types";
 
 import ElectionRoomForm from '@/components/app/admin/ElectionRoomForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, QrCode, BarChart3, Fingerprint, Users, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, BarChart3, AlertTriangle, Fingerprint, Users, Activity, CheckCircle, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import ShareableLinkDisplay from '@/components/app/admin/ShareableLinkDisplay';
-import Image from 'next/image'; 
-import Loading from './loading';
+import Image from 'next/image';
+import ShareableLinkDisplay from "@/components/app/admin/ShareableLinkDisplay";
+import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { format } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import ManageLoading from "./loading";
+
+
+function LiveStatusSkeleton() {
+    return (
+        <Card className="shadow-xl">
+            <CardHeader>
+                <CardTitle className="text-xl font-headline flex items-center">
+                    <Activity className="mr-3 h-6 w-6 text-primary" />
+                    <Skeleton className="h-7 w-[300px]" />
+                </CardTitle>
+                <Skeleton className="h-4 w-[400px]" />
+            </CardHeader>
+            <CardContent>
+                 <div className="border rounded-lg">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Participant</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Last Activity</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {[...Array(2)].map((_, i) => (
+                                <TableRow key={i}>
+                                    <TableCell><Skeleton className="h-5 w-[200px]" /></TableCell>
+                                    <TableCell><Skeleton className="h-6 w-[100px]" /></TableCell>
+                                    <TableCell className="text-right"><Skeleton className="h-5 w-[150px] ml-auto" /></TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+function LiveStatusDisplay({ room }: { room: ElectionRoom }) {
+    const [participants, setParticipants] = useState<Voter[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const votersColRef = collection(db, "electionRooms", room.id, "voters");
+        const q = query(votersColRef, orderBy("lastActivity", "desc"));
+
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedParticipants = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    email: doc.id,
+                    status: data.status,
+                    lastActivity: data.lastActivity?.toDate().toISOString(),
+                    ownPositionTitle: data.ownPositionTitle,
+                };
+            });
+            setParticipants(fetchedParticipants);
+            setIsLoading(false);
+        }, (error) => {
+            console.error("Error listening to participant updates:", error);
+            setIsLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [room.id]);
+
+    if (isLoading) {
+        return <LiveStatusSkeleton />;
+    }
+
+    const title = room.roomType === 'review' ? 'Reviewer' : 'Voter';
+
+    return (
+        <Card className="shadow-xl">
+            <CardHeader>
+                <CardTitle className="text-xl font-headline flex items-center">
+                    <Activity className="mr-3 h-6 w-6 text-primary" />
+                    Live Participation Status
+                </CardTitle>
+                <CardDescription>
+                    Real-time tracking of participants in this room. A total of {participants.length} {participants.length === 1 ? 'person has' : 'people have'} entered.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                {participants.length > 0 ? (
+                    <div className="border rounded-lg max-h-96 overflow-y-auto">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-muted/90 backdrop-blur-sm">
+                                <TableRow>
+                                    <TableHead>{title}</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Last Activity</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {participants.map((p) => (
+                                    <TableRow key={p.email}>
+                                        <TableCell className="font-medium">
+                                            <div className="truncate max-w-xs">{p.email}</div>
+                                            {p.ownPositionTitle && (
+                                                <div className="text-xs text-muted-foreground">{p.ownPositionTitle}</div>
+                                            )}
+                                        </TableCell>
+                                        <TableCell>
+                                            {p.status === 'completed' ? (
+                                                <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                                                    <CheckCircle className="mr-1 h-3 w-3" /> Completed
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="secondary">
+                                                    <LogIn className="mr-1 h-3 w-3" /> In Room
+                                                </Badge>
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {p.lastActivity ? format(new Date(p.lastActivity), "PPP p") : 'N/A'}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                ) : (
+                    <div className="text-center py-12 text-muted-foreground border-dashed border-2 rounded-lg">
+                        <p>No one has entered the room yet.</p>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
 
 
 export default function ManageElectionRoomPage() {
@@ -27,8 +163,14 @@ export default function ManageElectionRoomPage() {
   const [room, setRoom] = useState<ElectionRoom | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [baseUrl, setBaseUrl] = useState('');
 
   useEffect(() => {
+    // Set base URL only on the client side
+    if (typeof window !== 'undefined') {
+      setBaseUrl(window.location.origin);
+    }
+
     if (!roomId) {
         setError("Room ID is missing from the URL.");
         setLoading(false);
@@ -61,7 +203,7 @@ export default function ManageElectionRoomPage() {
   }, [roomId, router]);
 
   if (loading) {
-    return <Loading />;
+    return <ManageLoading />;
   }
   
   if (error) {
@@ -87,13 +229,11 @@ export default function ManageElectionRoomPage() {
     return notFound(); 
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:9002');
   const voterLink = `${baseUrl}/vote/${room.id}`;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(voterLink)}`;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-2">
         <Button variant="outline" asChild>
           <Link href="/admin/dashboard">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to Panel
@@ -116,6 +256,33 @@ export default function ManageElectionRoomPage() {
         </CardContent>
       </Card>
 
+      <LiveStatusDisplay room={room} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-xl font-headline">Access & Sharing</CardTitle>
+          <CardDescription>
+            Share this room with voters. For the link to work correctly when your app is deployed,
+            ensure your <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_BASE_URL</code> environment variable is set to your app's public URL.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+           <Alert variant="default">
+            <Fingerprint className="h-4 w-4" />
+            <AlertTitle>Your Room ID</AlertTitle>
+            <AlertDescription>
+              Voters can use this ID to manually access the room from the main <Link href="/vote" className="underline font-semibold">voting page</Link>.
+              <div className="mt-2">
+                <code className="text-sm bg-muted px-2 py-1 rounded font-mono break-all">
+                  {room.id}
+                </code>
+              </div>
+            </AlertDescription>
+          </Alert>
+          <ShareableLinkDisplay voterLink={voterLink} />
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-xl font-headline">Voter Participation</CardTitle>
@@ -132,47 +299,6 @@ export default function ManageElectionRoomPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl font-headline">Access & Sharing</CardTitle>
-          <CardDescription>
-            Share this room with voters. For the link and QR code to work correctly when your app is deployed,
-            ensure your <code className="font-mono bg-muted px-1 rounded">NEXT_PUBLIC_BASE_URL</code> environment variable is set to your app's public URL.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-           <Alert variant="default">
-            <Fingerprint className="h-4 w-4" />
-            <AlertTitle>Your Voting Room ID</AlertTitle>
-            <AlertDescription>
-              Voters will need this ID to access the voting room manually. It is also embedded in the shareable link and QR code.
-              <div className="mt-2">
-                <code className="text-sm bg-muted px-2 py-1 rounded font-mono break-all">
-                  {room.id}
-                </code>
-              </div>
-            </AlertDescription>
-          </Alert>
-          <ShareableLinkDisplay voterLink={voterLink} />
-          <Alert variant="default" className="border-primary/30">
-             <QrCode className="h-4 w-4" />
-            <AlertTitle>QR Code for Voters</AlertTitle>
-            <AlertDescription>
-              Voters can scan this QR code with their mobile devices to directly access the voting page.
-              <div className="mt-2 p-4 bg-muted rounded flex items-center justify-center">
-                 <Image 
-                    src={qrCodeUrl} 
-                    alt={`QR Code for election: ${room.title}`} 
-                    width={150} 
-                    height={150} 
-                    data-ai-hint="qr code election"
-                    className="rounded-md"
-                  />
-              </div>
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
     </div>
   );
 }
