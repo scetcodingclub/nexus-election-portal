@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ArrowLeft, BarChart3, AlertTriangle, Fingerprint, Users, Activity, CheckCircle, LogIn } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import Loading from './loading';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Image from 'next/image';
 import ShareableLinkDisplay from "@/components/app/admin/ShareableLinkDisplay";
@@ -203,7 +202,7 @@ export default function ManageElectionRoomPage() {
   }, [roomId, router]);
 
   if (loading) {
-    return <Loading />;
+    return <Skeleton className="h-screen w-full" />;
   }
   
   if (error) {
