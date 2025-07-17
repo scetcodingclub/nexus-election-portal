@@ -21,7 +21,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import ManageLoading from "./loading";
 
 
 function LiveStatusSkeleton() {
@@ -203,7 +202,7 @@ export default function ManageElectionRoomPage() {
   }, [roomId, router]);
 
   if (loading) {
-    return <ManageLoading />;
+    return null; // Let Next.js handle loading with loading.tsx
   }
   
   if (error) {
