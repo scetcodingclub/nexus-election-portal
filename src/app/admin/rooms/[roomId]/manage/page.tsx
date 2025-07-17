@@ -160,7 +160,6 @@ export default function ManageElectionRoomPage() {
   const roomId = params.roomId as string;
 
   const [room, setRoom] = useState<ElectionRoom | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [baseUrl, setBaseUrl] = useState('');
 
@@ -172,7 +171,6 @@ export default function ManageElectionRoomPage() {
 
     if (!roomId) {
         setError("Room ID is missing from the URL.");
-        setLoading(false);
         return;
     };
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -191,8 +189,6 @@ export default function ManageElectionRoomPage() {
           } else {
             setError("An unexpected error occurred while loading the page. Please try again later.");
           }
-        } finally {
-          setLoading(false);
         }
       } else {
         router.push('/admin/login');
@@ -201,10 +197,6 @@ export default function ManageElectionRoomPage() {
     return () => unsubscribe();
   }, [roomId, router]);
 
-  if (loading) {
-    return <Skeleton className="h-screen w-full" />;
-  }
-  
   if (error) {
     return (
       <Card className="w-full max-w-2xl mx-auto mt-10 shadow-xl border-destructive">
@@ -225,7 +217,9 @@ export default function ManageElectionRoomPage() {
   }
 
   if (!room) {
-    return notFound(); 
+    // This will be handled by the not-found.tsx file if room is null after fetching
+    // And Next.js will show loading.tsx while fetching.
+    return null; 
   }
 
   const voterLink = `${baseUrl}/vote/${room.id}`;
